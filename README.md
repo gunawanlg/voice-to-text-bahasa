@@ -2,6 +2,7 @@
 Speech Recognition for Indonesian spoken language.
 
 ## Project Structure
+```
 ├── LICENSE
 ├── Makefile           <- Makefile with commands like `make data` or `make train`
 ├── README.md          <- The top-level README for developers using this project.
@@ -38,9 +39,10 @@ Speech Recognition for Indonesian spoken language.
 │   ├── models         <- Scripts to train models and then use trained models to make
 │   │   │                 predictions
 │   │   ├── predict_model.py
-│   │   └── train_model.py
+│   │   └── train_model.pyd
 |
 ├── test               <- Script to tests modules in src directory.
+```
 
 ## Versioning
 This project use Semantic Versioning 2.0.0 from https://semver.org/.
