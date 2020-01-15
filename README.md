@@ -1,4 +1,4 @@
-## voice-to-text-bahasa
+# Voice to Text Bahasa
 Speech Recognition for Indonesian spoken language.
 
 ## Project Structure
@@ -29,8 +29,6 @@ $ ls
 │                         generated with `pip freeze > requirements.txt`
 │
 ├── src                <- Source code for use in this project.
-│   ├── __init__.py    <- Makes src a Python module
-│   │
 │   ├── data           <- Scripts to download or generate data
 │   │
 │   ├── features       <- Scripts to turn raw data into features for modeling
