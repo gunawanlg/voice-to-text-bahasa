@@ -1,8 +1,9 @@
-# voice-to-text-bahasa
+## voice-to-text-bahasa
 Speech Recognition for Indonesian spoken language.
 
 ## Project Structure
 ```
+$ ls
 ├── LICENSE
 ├── Makefile           <- Makefile with commands like `make data` or `make train`
 ├── README.md          <- The top-level README for developers using this project.
@@ -31,15 +32,11 @@ Speech Recognition for Indonesian spoken language.
 │   ├── __init__.py    <- Makes src a Python module
 │   │
 │   ├── data           <- Scripts to download or generate data
-│   │   └── make_dataset.py
 │   │
 │   ├── features       <- Scripts to turn raw data into features for modeling
-│   │   └── build_features.py
 │   │
 │   ├── models         <- Scripts to train models and then use trained models to make
-│   │   │                 predictions
-│   │   ├── predict_model.py
-│   │   └── train_model.pyd
+│                         predictions
 |
 ├── test               <- Script to tests modules in src directory.
 ```
