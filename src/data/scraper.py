@@ -50,12 +50,19 @@ class BibleIsScraper:
     driver_path : str
         chromedriver.exe filepath
     """
-    def __init__(self, base_url, driver_path):
+    def __init__(self, base_url, driver_path, output_dir='../../dataset/raw/bibleis/'):
         self.base_url = base_url
         self.driver_path = driver_path
+        self.output_dir = output_dir
         self.data = []
         self.urls = []
-    
+
+        if not os.path.exists(self.output_dir): 
+            os.makedirs(self.output_dir)
+            print("Output directory created at " + self.output_dir)
+        else:
+            print("Output directory is already created at " + self.output_dir)
+            
     def get_urls(self):
         """
         Method to get base urls for all chapters. You may need to update this method according
@@ -117,6 +124,7 @@ class BibleIsScraper:
         audio_src   = audio.get_attribute("src")
         audio_title = re.search("[^?]*", url[28:]).group() + ".mp3"
         audio_title = audio_title.replace("/", "_")
+        audio_title = self.output_dir + audio_title
         response    = urllib.request.urlopen(audio_src)
 
         with open(audio_title, "wb") as f:
@@ -130,6 +138,8 @@ class BibleIsScraper:
     def to_dataframe(self):
         return pd.DataFrame(self.data, columns=["url", "chapter_string", "audio_title"])
     
-    def write_csv(self, filename):
+    def write_csv(self, filename=None):
+        if filename is None:
+            filename = self.output_dir + 'bibleis_transcription.csv'
         self.to_dataframe().to_csv(filename, sep=',', line_terminator='\n', index=False)
         print("Data written in "+filename)
