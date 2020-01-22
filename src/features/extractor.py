@@ -326,6 +326,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         self.dct_norm = dct_norm
         self.append_delta = append_delta
         self.write_output = write_output
+        self.output_dir = output_dir
 
     
     def fit(self, X, y=None):
