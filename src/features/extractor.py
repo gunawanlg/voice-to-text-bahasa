@@ -49,13 +49,13 @@ class _BaseFeatureExtractor(TransformerMixin):
         signal : 1-D np.Array
             Array of signal from the audio.
 
-        sample_rate: int
+        sample_rate : int
             Size of the sample rate.
 
-        frame_size: float, default=0.025
+        frame_size : float, default=0.025
             Size of the audio frame.
 
-        frame_stride: float, default=0.01
+        frame_stride : float, default=0.01
             Length of the frame stride.
 
 
@@ -241,6 +241,73 @@ class _BaseFeatureExtractor(TransformerMixin):
             return cepstra
 
 class MFCCFeatureExtractor(_BaseFeatureExtractor):
+    """
+    Extract Mel features from audio files
+
+    The input for this transformer should be an array-like of
+    strings. The features from the audio are extracted through an 
+    MFCC way. This results in an array of integers of Mel features
+    for each audio.
+
+    Parameters
+    ----------
+    sample_rate : int, default=16000
+        Size of the sample rate.
+
+    frame_size : float, default=0.025
+            Size of the audio frame.
+
+    frame_stride : float, default=0.01
+        Length of the frame stride.
+
+    filter_num : int, default=20
+        Number of Mel filters.
+
+    NFFT : int, default=512
+        Size of the Fast Fourier Transform.
+
+    low_freq : int, default=0
+        Lowest frequency.
+
+    high_freq : int, default=None
+        Highest frequency.
+
+    pre_emphasis_coeff : float, default=0.97
+        Coefficient for pre-emphasis.
+
+    cep_lifter : int, default=22
+        Number of lifter.
+
+    dct_type : int, default=2
+        Type of numpy discrete consine transform.
+    
+    dct_norm : str, default="ortho"
+        Normalization mode of the dct.
+
+    append_delta : bool, default=False
+        Append the delta features to features.
+    
+    write_output : bool, default=False
+        Store the Mel features to pickle.
+
+    Examples
+    --------
+    Given an array of audio filename, we let the feature extractor
+    transform the audio signal data to a Mel's feature.
+
+    >>> mfcc = MFCCFeatureExtractor()
+    >>> X = ["OSR_us_000_0010_8k.wav"]
+    >>> mfcc.fit(X)
+    >>> mfcc.filter_bank_
+    [[0.   0.5  1.   ... 0.   0.   0.  ]
+    [0.   0.   0.   ... 0.   0.   0.  ]
+    ...]]
+    >>> mfcc.transform(X)
+    [array([[-7.12404039e+01,  4.03084620e+00, -2.14802821e+01, ...,
+        1.74105473e-01, -2.86706693e-01,  1.62723292e-01],
+        ...]
+    """
+
     def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False):
         self.sample_rate = sample_rate
         self.frame_size = frame_size
@@ -287,23 +354,6 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         -------
         X_out : 2-d array
             Array of Mel features
-
-        Examples
-        --------
-        Given an array of audio filename, we let the feature extractor
-        transform the audio signal data to a Mel's feature.
-
-        >>> mfcc = MFCCFeatureExtractor()
-        >>> X = ["OSR_us_000_0010_8k.wav"]
-        >>> mfcc.fit(X)
-        >>> mfcc.filter_bank_
-        [[0.   0.5  1.   ... 0.   0.   0.  ]
-        [0.   0.   0.   ... 0.   0.   0.  ]
-        ...]]
-        >>> mfcc.transform(X)
-        [array([[-7.12404039e+01,  4.03084620e+00, -2.14802821e+01, ...,
-         1.74105473e-01, -2.86706693e-01,  1.62723292e-01],
-         ...]
         """
 
         X_out = []
