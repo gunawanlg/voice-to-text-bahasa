@@ -26,13 +26,13 @@ class _BaseFeatureExtractor(TransformerMixin):
         signal : 1-D np.Array
             Array of signal from the audio.
 
-        coefficient: float, default=0.97
+        coefficient : float, default=0.97
             Coefficient for pre-emphasis.
 
 
         Returns
         -------
-        emphasized_signal: 1-D np.Array:
+        emphasized_signal : 1-D np.Array:
             Pre-emphasized signal
         """
 
@@ -61,7 +61,7 @@ class _BaseFeatureExtractor(TransformerMixin):
 
         Returns
         -------
-        emphasized_signal: 1-D np.Array:
+        emphasized_signal : 1-D np.Array:
             Pre-emphasized signal
         """
 
@@ -95,7 +95,7 @@ class _BaseFeatureExtractor(TransformerMixin):
 
         Returns
         -------
-        mel: float
+        mel : float
             Mel Frequency.
         """
 
@@ -113,7 +113,7 @@ class _BaseFeatureExtractor(TransformerMixin):
 
         Returns
         -------
-        hz: float
+        hz : float
             frequency.
         """
         return 700 * (10**(mel / 2595.0) - 1)
@@ -128,21 +128,21 @@ class _BaseFeatureExtractor(TransformerMixin):
         filter_num : int, default=20
             Number of Mel filters.
         
-        NFFT: int, default=512
+        NFFT : int, default=512
             Size of the Fast Fourier Transform
         
-        sample_rate: int, default=16000
+        sample_rate : int, default=16000
             Sampling rate
 
-        low_freq: int, default=0
+        low_freq : int, default=0
             Lowest frequency
 
-        high_freq: int, default=None
+        high_freq : int, default=None
             Highest frequency
 
         Returns
         -------
-        filter_bank: 1-D np.array
+        filter_bank : 1-D np.array
             Filter bank
         """
         
@@ -176,12 +176,12 @@ class _BaseFeatureExtractor(TransformerMixin):
         frames : 1-D np.Array
             Array of signal from the audio.
 
-        NFFT: int, default=512
+        NFFT : int, default=512
             Size of the Fast Fourier Transform
 
         Returns
         -------
-        pow_frames: 1-D np.Array:
+        pow_frames : 1-D np.Array:
             Power pectrum.
         """
 
@@ -199,12 +199,12 @@ class _BaseFeatureExtractor(TransformerMixin):
         features : 1-D np.Array
             Array of features.
 
-        N: int, default=2
+        N : int, default=2
             Preceding and following N frames
 
         Returns
         -------
-        delta_features: 1-D np.Array:
+        delta_features : 1-D np.Array:
             Array of delat features
         """
         NUMFRAMES = len(features)
@@ -224,12 +224,12 @@ class _BaseFeatureExtractor(TransformerMixin):
         cepstra : 1-D np.Array
             Coefficients of the MFCC.
 
-        L: int, default=22
+        L : int, default=22
             Number of lifter.
 
         Returns
         -------
-        lift * cepstra: int
+        lift * cepstra : int
             A multiplication of lifter and MFCC coeff
         """
         if L > 0:
@@ -290,6 +290,10 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
     write_output : bool, default=False
         Store the Mel features to pickle.
 
+    output_dir : string, path, default='../data/processed/extracted'
+        Output directory of where the normalized audio data
+        will be stored.
+
     Examples
     --------
     Given an array of audio filename, we let the feature extractor
@@ -308,7 +312,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         ...]
     """
 
-    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False):
+    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False, output_dir="../data/processed/extracted"):
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
@@ -322,6 +326,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         self.dct_norm = dct_norm
         self.append_delta = append_delta
         self.write_output = write_output
+        self.output_dir = output_dir
 
     
     def fit(self, X, y=None):
@@ -388,7 +393,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
             X_out.append(features)
 
         if self.write_output:
-            processed_data_directory  = "../../data/processed/extracted"
+            processed_data_directory  = self.output_dir
             date = datetime.today().strftime("%Y%m%d")
             if not os.path.exists(processed_data_directory):
                 os.mkdir(processed_data_directory)
