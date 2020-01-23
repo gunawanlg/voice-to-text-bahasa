@@ -7,8 +7,7 @@ See notebook for example usage.
 """
 from math import ceil
 
-from tensorflow.keras import Model
-import tensorflow.keras.models
+from tensorflow.keras.models import Model
 # from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from tensorflow.keras.backend import ctc_batch_cost
 from tensorflow.keras import Input, Sequential
@@ -17,6 +16,9 @@ from tensorflow.keras.layers import Lambda, Dense, Dropout, LSTM, Activation, Ma
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.models import model_from_json
 from matplotlib import pyplot as plt
+
+# from .my_keras_layers import BaselineASR
+
 
 class _BaseModel:
     """
@@ -27,18 +29,21 @@ class _BaseModel:
     
     It also defines default dir_path and doc_path if this class was to be used in directory
     /notebooks/modelling/
+
+    Available convenience function for subclassing:
+        _create_callbacks : create basic ModelCheckpoint and EarlyStoppping callback
+            the callbacks created will be saved in object.
+        _fit : keras model fit method
+            defines basic fit method, with ModelCheckpoint and EarlyStopping callbacks
+            if validation data is provided and _create_callbacks is called.
     """
-    def __init__(self, X_train, y_train, X_val=None, y_val=None, dir_path="../../models/", doc_path="../../docs/"):
-        self._X_train = X_train
-        self._X_val = X_val
-        self._y_train = y_train
-        self._y_val = y_val
+    def __init__(self, dir_path="../../models/", doc_path="../../docs/"):
         self._dir_path = dir_path
         self._doc_path = doc_path
         self.model = None
         self.history = None
         self.fig = None
-
+        self.callbacks = None
         self._show_summary()
 
     def compile(self):
@@ -85,24 +90,95 @@ class _BaseModel:
             raise AttributeError("Model is not fitted. No history figure found. Call fit() method first")
         plt.show(self.fig)
 
+    def _fit(self, X_train, y_train, X_val=None, y_val=None, epochs=100, batch_size=32, min_delta=1e-4, patience=2):
+        """
+        Base fit model for easier implementation of child instance fit() method.
+
+        Parameters
+        ----------
+        X_train : np.ndarray[shape=(num_training_examples, *dims)]
+            input data
+        y_train : np.ndarray[shape=(num_training_examples, num_classes)]
+            label data
+        X_val : np.ndarray[shape=(num_training_examples, *dims)]
+            input validation data, will do early stopping if provided
+        y_val : np.ndarray[shape=(num_training_examples, num_classes)]
+            label validation data, will do early stopping if provided
+        epoch : int,
+            number of epoch to run
+        batch_size : int,
+            batch size for training, usually in the power of two
+        """
+        if (X_val == None) and (y_val == None):
+            self.history = self.model.fit(X_train,
+                                          y_train, 
+                                          epochs=epochs, 
+                                          batch_size=batch_size, 
+                                          shuffle=True)
+        else:
+            self.history = self.model.fit(X_train,
+                                          y_train, 
+                                          validation_data=(X_val, y_val),
+                                          callbacks=self.callbacks,
+                                          epochs=epochs, 
+                                          batch_size=batch_size, 
+                                          shuffle=True)
+        
+        self._save_history_figure()
+
+    def _callbacks(self, min_delta=1e-4, patience=2):
+        """
+        Basic keras fit callbacks.
+
+        Save best model and its weights according to best validation loss, while also performs
+        early stopping when it starts to overfit.
+        """
+        checkpoint_path = self._dir_path+self.model.name+'.h5'
+        cp_callback = ModelCheckpoint(filepath=checkpoint_path,
+                                          monitor='val_loss',
+                                          save_best_only=True,
+                                          mode='min',
+                                          save_weights_only=False)
+
+        es_callback = EarlyStopping(monitor='val_loss',
+                                    min_delta=1e-4,
+                                    patience=2,
+                                    mode='min')
+
+        self.callbacks = [cp_callback, es_callback]
+        
     def _show_summary(self):
         """Show summary of the model after calling __init__"""
         print("Model directory is set to " + self._dir_path)
         print("Documentation directory is set to " + self._doc_path)
+        print()
 
     def _save_history_figure(self):
         """Create train/val loss figure from history"""
         if self.history is None: 
             raise AttributeError("Model is not fitted. No history found. Call fit() method first.")
+        
+        history_dict = self.history.history
 
-        fig, ax = plt.subplots(figsize=(15, 6))
-        ax.plot(self.history.history['loss'])
-        ax.plot(self.history.history['val_loss'])
-        ax.set_title('model loss')
-        ax.set_ylabel('loss')
-        ax.set_xlabel('epoch')
-        ax.legend(['train', 'val'], loc='upper left')
-        plt.savefig(self._doc_path+self.model.name+'.png', dpi=300)
+        # No validation training
+        if 'val_loss' in history_dict:
+            fig, ax = plt.subplots(figsize=(15, 6))
+            ax.plot(self.history.history['loss'])
+            ax.plot(self.history.history['val_loss'])
+            ax.set_title('model loss')
+            ax.set_ylabel('loss')
+            ax.set_xlabel('epoch')
+            ax.legend(['train', 'val'], loc='upper left')
+            plt.savefig(self._doc_path+self.model.name+'.png', dpi=300)
+        # With validation training
+        else:
+            fig, ax = plt.subplots(figsize=(15, 6))
+            ax.plot(self.history.history['loss'])
+            ax.set_title('model loss')
+            ax.set_ylabel('loss')
+            ax.set_xlabel('epoch')
+            ax.legend(['train'], loc='upper left')
+            plt.savefig(self._doc_path+self.model.name+'.png', dpi=300)
 
         self.fig = fig
 
@@ -161,96 +237,113 @@ class BaselineASRModel(_BaseModel):
     >>> BaselineASR.fit(epochs=1, batch_size=32) # history is now callable
     >>> BaselineASR.plot_history()
     """
-    def __init__(self, X_train, y_train, X_val=None, y_val=None, sample_rate=16000, lang='ind'):
-        super().__init__(X_train, y_train, X_val, y_val)
-        self._input_length = X_train.shape[1]
-        self._sample_rate = sample_rate
-        self._lang = lang
-        self._filters      = None
-        self._kernel_size  = None
-        self._strides      = None
-        self._padding      = None
-        self._n_lstm_units = None
-        self.vocab_len     = None
-
-    def create(self, filters=200, kernel_size=11, strides=2, padding='valid', n_lstm_units=200, vocab_len=29):
+    def __init__(self, input_shape, vocab_len, filters=200, kernel_size=11, strides=2, padding='valid', 
+                 n_lstm_units=200):
+        super().__init__()
+        self.vocab_len     = vocab_len
+        self.input_shape   = input_shape
         self._filters      = filters
         self._kernel_size  = kernel_size
         self._strides      = strides
         self._padding      = padding
         self._n_lstm_units = n_lstm_units
-        self.vocab_len     = vocab_len
 
-        def ctc_lambda_func(args):
+        self._create()
+        
+    def _create(self):
+        """Create the baseline ASR with CTC Model"""
+        def _ctc_lambda_func(args):
+            """Lambda function to calculate CTC loss in keras"""
             y_pred, labels, input_length, label_length = args
-
+            # y_pred = y_pred[:, 2:, :]
             return ctc_batch_cost(labels, y_pred, input_length, label_length)
 
-        labels = Input(shape=[200],dtype='float32',name="CTC_Label")
+        # Calculate output shape as len of vocab +1 for CTC blank token
+        output_shape = self.vocab_len + 1
+
+        input_in = Input(shape=self.input_shape, name="the_input")
+        mask     = Masking(mask_value=0, name="masking")(input_in)
+        conv1D   = Conv1D(self._filters, self._kernel_size, strides=self._strides, padding=self._padding, activation='relu', name="conv1")(mask)
+        biLSTM   = Bidirectional(LSTM(self._n_lstm_units, return_sequences=True, activation='tanh'), name="bidirectional")(conv1D)
+        y_pred   = TimeDistributed(Dense(output_shape, activation='softmax', name="the_output"))(biLSTM)
+
+        labels       = Input(shape=[None],dtype='float32',name="the_labels")
         input_length = Input(shape=[1],dtype='int32',name="input_length")
         label_length = Input(shape=[1],dtype='int32',name="label_length")
+        loss_out     = Lambda(_ctc_lambda_func, output_shape=(1,), name='ctc')([y_pred, labels, input_length, label_length])
 
-        # self.model = Sequential()
-        # self.model.add(Input(shape=self._X_train.shape[1:]))
-        # self.model.add(Conv1D(filters, kernel_size, strides=strides, padding=padding, activation='relu'))
-        # self.model.add(Bidirectional(LSTM(n_lstm_units, return_sequences=True, activation='tanh')))
-        # self.model.add(Dense(vocab_len))
+        self.model = Model(inputs=[input_in, labels, input_length, label_length], outputs=loss_out)
+        self.model._name = '_'.join(["BaselineASR",
+                                     'f'+str(self._filters), 
+                                     'k'+str(self._kernel_size), 
+                                     's'+str(self._strides), 
+                                     'p'+self._padding, 
+                                     'nlstm'+str(self._n_lstm_units), 
+                                     'ndense'+str(self.vocab_len)])
+
+        # See the model summary before calculating custom CTC loss
+        # for clarity of the architecture of the model
+        tmp_model = Model(inputs=input_in, outputs=y_pred)
+        tmp_model._name = '_'.join(["BaselineASR",
+                                    'f'+str(self._filters), 
+                                    'k'+str(self._kernel_size), 
+                                    's'+str(self._strides), 
+                                    'p'+self._padding, 
+                                    'nlstm'+str(self._n_lstm_units), 
+                                    'ndense'+str(self.vocab_len)])
+        tmp_model.summary()
+
+    def compile(self, optimizer='adam', **kwargs):
+        """
+        Compile the model, a.k.a building the tensorflow graph.
+
+        Parameters
+        ----------
+        optimizer : str, optional
+            optimizer string or class from keras.optimizers, defaulting to:
+                Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
+        """
+        self.model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=optimizer, **kwargs)
+
+    def fit(self, *arg, **kwargs):
+        """Model will only train using fit_generator() method"""
+        # raise NotImplementedError("fit() method not implemented. Use fit_generator() instead.")
+
+        self._fit(*arg, **kwargs)
+
+    def fit_generator(self, train_generator, validation_generator=None, epochs=1, **kwargs):
+        """
+        Fit the model. 
         
-        # self.model.summary()
+        This fit method prefer explicitly state training and validation data, rather than using 
+        validation_split. Therefore it is best to first create your data using, for example, 
+        using train_test_split method from scikit-learn.
 
-        input_in = Input(shape=self._X_train.shape[1:])
-        conv1D = Conv1D(filters, kernel_size, strides=strides, padding=padding, activation='relu')(input_in)
-        biLSTM = Bidirectional(LSTM(n_lstm_units, return_sequences=True, activation='tanh'))(conv1D)
-        y_pred = Dense(vocab_len)(biLSTM)
+        By default, model will use EarlyStopping callbacks to stop from overfitting training dataset.
         
-        # Print model summary
-        tensorflow.keras.models.Model(inputs=input_in, outputs=y_pred).summary()
-
-        loss_out = Lambda(ctc_lambda_func, output_shape=(1,), name='ctc')([y_pred, labels, input_length, label_length])
-        self.model = tensorflow.keras.models.Model(inputs=[input_in, labels, input_length, label_length], outputs=loss_out)
-        self.model._name = '_'.join(["BaselineASR", self._lang+'-'+str(self._sample_rate),
-                             'f'+str(filters), 
-                             'k'+str(kernel_size), 
-                             's'+str(strides), 
-                             'p'+padding, 
-                             'nlstm'+str(n_lstm_units), 
-                             'ndense'+str(vocab_len)])
-        self.model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer='adam')
-
-    def compile(self):
-        # self.model.compile(loss=_ctc_loss_func, optimizer="adam")
-        pass
-
-    def fit(self, epochs=100, batch_size=32):
-        checkpoint_path = self._dir_path+self.model.name+'.h5'
-
-        if (self._X_val == None) and (self._y_val == None):
-             self.history = self.model.fit(self._X_train,
-                                      self._y_train, 
-                                      epochs=epochs, 
-                                      batch_size=batch_size, 
-                                      shuffle=True)
-        else:
-            cp_callback = ModelCheckpoint(filepath=checkpoint_path,
-                                    monitor='val_loss',
-                                    save_best_only=True,
-                                    mode='min',
-                                    save_weights_only=False)
-
-            es_callback = EarlyStopping(monitor='val_loss',
-                                        min_delta=1e-4,
-                                        patience=2,
-                                        mode='min')
-
-            self.history = self.model.fit(self._X_train,
-                                        self._y_train, 
-                                        validation_data=(self._X_val, self._y_val),
-                                        callbacks=[cp_callback, es_callback],
-                                        epochs=epochs, 
-                                        batch_size=batch_size, 
-                                        shuffle=True)
-        
-        self._save_history_figure()
+        Parameters
+        ----------
+        train_generator : keras.utils.Sequence
+            yield (inputs, outputs) where:
+            inputs = {
+                'the_input':     np.ndarray[shape=(batch_size, max_seq_length, mfcc_features)]: input audio data
+                'the_labels':    np.ndarray[shape=(batch_size, max_transcript_length)]: transcription data
+                'input_length':  np.ndarray[shape=(batch_size, 1)]: length of each sequence (numb of frames) in output layer
+                'label_length':  np.ndarray[shape=(batch_size, 1)]: length of each sequence (numb of letters) in y
+            },
+            outputs = {
+                'ctc':           np.ndarray[shape=(batch_size, 1)]: dummy data for dummy loss function
+            }
+        validation_generator : keras.utils.Sequence, optional
+            validation data generator, yield same inputs, outputs shape as train_generator
+        epochs : int
+            number of iteration throughout the whole dataset
+        **kwargs : keras fit_generator keyword arguments
+        """
+        self.model.fit_generator(generator=train_generator, 
+                                 validation_data=validation_generator,
+                                 epochs=epochs,
+                                 **kwargs)
 
     def evaluate(self, X_test, y_test):
         return self.model.evaluate(X_test, y_test)
@@ -258,24 +351,3 @@ class BaselineASRModel(_BaseModel):
     def predict(self, X_test):
         y_pred = self.model.predict(X_test)
         return y_pred
-
-
-####################################
-### KERAS CUSTOM LAYER COMPONENT ###
-####################################
-
-class BaselineASR(Model):
-    def __init__(self, filters, kernel_size, strides, padding, n_lstm_units, n_dense_units):
-        super(BaselineASR, self).__init__()
-        self.conv1d        = Conv1D(filters, kernel_size, strides=strides, padding=padding, activation='relu')
-        self.lstm_forward  = LSTM(n_lstm_units, return_sequences=True, activation='tanh')
-        self.lstm_backward = LSTM(n_lstm_units, return_sequences=True, go_backwards=True, activation='tanh')
-        self.bilstm        = Bidirectional(self.lstm_forward, backward_layer=self.lstm_backward)
-        self.dense         = Dense(n_dense_units)
-
-    def call(self, x):
-        x = self.conv1d(x)
-        x = self.bilstm(x)
-        x = self.dense(x)
-
-        return x
