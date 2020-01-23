@@ -36,6 +36,25 @@ class _BaseModel:
         _fit : keras model fit method
             defines basic fit method, with ModelCheckpoint and EarlyStopping callbacks
             if validation data is provided and _create_callbacks is called.
+
+    Parameters
+    ----------
+        dir_path : str
+            directory to store model checkpoint
+        doc_path : str
+            directory to store model training documentation
+
+    Attributes
+    ----------
+        model : tensorflow.keras.models.Model
+            instance of model, defined in _create()
+        history : keras History object
+            history data during model training using fit() or fit_generator()
+        fig : matplotlib.figure.Figure
+            plot of loss and other metrics during training
+        callbacks : list of keras.callbacks.callbacks.Callback
+            callbacks defined in _callbacks(), if not implemented, will not store either
+            checkpoint or training metrics
     """
     def __init__(self, dir_path="../../models/", doc_path="../../docs/"):
         self._dir_path = dir_path
@@ -216,26 +235,7 @@ class BaselineASRModel(_BaseModel):
 
     Example
     -------
-    >>> import string
-    >>> import numpy
-    >>> from sklearn.model_selection import train_test_split
-    >>> vocab = set(string.ascii_lowercase)
-    >>> vocab |= {' ', '>', '%'} # space_token, end_token, blank_token
-    >>> vocab_index = list(range(len(vocab)))
-    >>> X = np.array([[5 for x in range(1000)] for y in range(300)])
-    >>> X = np.expand_dims(X, axis=0)
-    >>> X.shape
-    (1, 300, 1000)
-    >>> y = np.random.choice(vocab_index, 100)
-    >>> y = np.expand_dims(y, axis=0)
-    >>> y.shape
-    (1, 100)
-    >>> X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.4, random_state=42, stratify=Y)
-    >>> BaselineASR = BaselineASRModel(X_train, X_val, y_train, y_val)
-    >>> BaselineASR.create()
-    >>> BaselineASR.compile()
-    >>> BaselineASR.fit(epochs=1, batch_size=32) # history is now callable
-    >>> BaselineASR.plot_history()
+        See 3.0-glg-baseline-model.ipynb for example
     """
     def __init__(self, input_shape, vocab_len, filters=200, kernel_size=11, strides=2, padding='valid', 
                  n_lstm_units=200):
@@ -295,7 +295,7 @@ class BaselineASRModel(_BaseModel):
 
     def compile(self, optimizer='adam', **kwargs):
         """
-        Compile the model, a.k.a building the tensorflow graph.
+        Compile the model, a.k.a building the graph.
 
         Parameters
         ----------
@@ -306,18 +306,16 @@ class BaselineASRModel(_BaseModel):
         self.model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=optimizer, **kwargs)
 
     def fit(self, *arg, **kwargs):
-        """Model will only train using fit_generator() method"""
-        # raise NotImplementedError("fit() method not implemented. Use fit_generator() instead.")
-
+        """Fit the model"""
         self._fit(*arg, **kwargs)
 
     def fit_generator(self, train_generator, validation_generator=None, epochs=1, **kwargs):
         """
-        Fit the model. 
+        Fit the model using generator. 
         
-        This fit method prefer explicitly state training and validation data, rather than using 
-        validation_split. Therefore it is best to first create your data using, for example, 
-        using train_test_split method from scikit-learn.
+        This fit method prefer explicit input on training and validation data, rather than using 
+        validation_split. It is best to first create your data using, for example, by using 
+        train_test_split method from scikit-learn.
 
         By default, model will use EarlyStopping callbacks to stop from overfitting training dataset.
         
@@ -338,7 +336,8 @@ class BaselineASRModel(_BaseModel):
             validation data generator, yield same inputs, outputs shape as train_generator
         epochs : int
             number of iteration throughout the whole dataset
-        **kwargs : keras fit_generator keyword arguments
+        **kwargs
+            keras fit_generator keyword arguments
         """
         self.model.fit_generator(generator=train_generator, 
                                  validation_data=validation_generator,
