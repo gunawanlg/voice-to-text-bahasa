@@ -185,10 +185,9 @@ class _BaseFeatureExtractor(TransformerMixin):
             Power pectrum.
         """
 
-        mag_frames = np.abs(np.fft.rfft(frames, NFFT))
-        pow_frames = ((1.0 / NFFT) * ((mag_frames) ** 2))
-
-        return pow_frames
+        complex_spectrum = np.fft.rfft(frames, NFFT)
+        power_spectrum = 1.0/NFFT * np.square(_spectrum_magnitude(frames, NFFT))
+        return power_spectrum
 
     def _compute_delta(self, features, N=2):
         """
@@ -312,7 +311,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         ...]
     """
 
-    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False, output_dir="../data/processed/extracted"):
+    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False, output_dir="../data/processed/extracted"):
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
@@ -327,7 +326,6 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         self.append_delta = append_delta
         self.write_output = write_output
         self.output_dir = output_dir
-
     
     def fit(self, X, y=None):
         """
@@ -391,6 +389,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
                 features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
 
             X_out.append(features)
+            break
 
         if self.write_output:
             processed_data_directory  = self.output_dir
@@ -406,3 +405,4 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
     def fit_transform(self, X, y=None):
         return self.fit(X).transform(X)
+
