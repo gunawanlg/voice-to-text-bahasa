@@ -70,6 +70,24 @@ class Aligner(TransformerMixin):
         return self
 
     def transform(self, X):
+        """
+        Transform tuples of path of (audio, transcript) into 
+        aligned audio and sentence in form of 
+        AENEAS json output file.
+
+        Parameters
+        ----------
+        X : 1-d np.array
+            list of tuples of 
+            (r"path/to/audio.mp3", r"path/to/audio_transcription.txt)
+
+        Returns
+        -------
+        self.res : 1-d array
+            list of json files of aligned audio and 
+            sentence
+        """
+
         config_string = u"task_language="+self.language+"|is_text_type="+self.text_type+"|os_task_file_format="+self.output_type
 
         json_availability_dict = self._validate_availability(X)
@@ -86,9 +104,8 @@ class Aligner(TransformerMixin):
                 
                     # Process Task
                     ExecuteTask(task).execute()
-                
-                    json_output = json.loads(task.sync_map.json_string)
-                    self.res.append(json_output)
+
+                    self.res.append(json_file_path_absolute)
 
                     if self.write_output: 
                         # Output sync map to file
