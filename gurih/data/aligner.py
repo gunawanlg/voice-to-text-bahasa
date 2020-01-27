@@ -2,6 +2,7 @@
 # coding=utf-8
 
 import json
+import glob
 
 from aeneas.executetask import ExecuteTask
 from aeneas.task import Task
@@ -33,29 +34,67 @@ class Aligner(TransformerMixin):
         self.text_type = text_type
         self.output_type = output_type
         self.write_output = write_output
+        self.res = []
+
+    def _validate_availability(self, X):
+        """
+        Validate if .json file exists or not
+
+        Parameters
+        ----------
+        X: 1-d array
+            list of data to be validated
+
+        Return
+        ------
+        json_availability_dict : dict
+            dictionary of json file availability
+        """
+
+        # Get a list of existing json files
+        finished_jsons = glob.glob("*.json")
+        self.res += finished_jsons
+
+        # Get a list of all possible generated jsons
+        possible_json_file_path_absolutes =  [x[0][:-4] + ".json" for x in X]
+
+        # Create a dictionary for faster querying
+        json_availability_dict = {possible_json_file_path_absolute: True for possible_json_file_path_absolute in possible_json_file_path_absolutes}
+
+        for finished_json in finished_jsons:
+            json_availability_dict[finished_json] = False
+
+        return json_availability_dict
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
         config_string = u"task_language="+self.language+"|is_text_type="+self.text_type+"|os_task_file_format="+self.output_type
-        
+
+        json_availability_dict = self._validate_availability(X)
+
         # Create Task
-        res = []
         for x in X:
-            task = Task(config_string=config_string)
-            task.audio_file_path_absolute = x[0]
-            task.text_file_path_absolute = x[1]
-            
-            # Process Task
-            ExecuteTask(task).execute()
-            
-            json_output = json.loads(task.sync_map.json_string)
-            res.append(json_output)
+            json_file_path_absolute = x[0][:-4] + ".json"
 
-            if self.write_output: 
-                # Output sync map to file
-                task.sync_map_file_path_absolute = x[0][:-4] + ".json"
-                task.output_sync_map_file()
+            if json_availability_dict[json_file_path_absolute]:
+                try:
+                    task = Task(config_string=config_string)
+                    task.audio_file_path_absolute = x[0]
+                    task.text_file_path_absolute = x[1]
+                
+                    # Process Task
+                    ExecuteTask(task).execute()
+                
+                    json_output = json.loads(task.sync_map.json_string)
+                    self.res.append(json_output)
 
-        return res
+                    if self.write_output: 
+                        # Output sync map to file
+                        task.sync_map_file_path_absolute = json_file_path_absolute
+                        task.output_sync_map_file()
+                except:
+                    self.res.append(None)
+
+        return self.res
