@@ -1,37 +1,53 @@
 from random import shuffle as shuf
 import string
+import librosa
 
 import numpy as np
 import pandas as pd
-from tensorflow.keras import keras
+from keras.preprocessing.sequence import pad_sequences
 
-class AudioDataGenerator(keras.utils.Sequence):
+from gurih.features.extractor import MFCCFeatureExtractor
+from gurih.data.normalizer import AudioNormalizer
+from sklearn.pipeline import Pipeline
+from tensorflow.python.keras.utils.data_utils import Sequence
+from sklearn.pipeline import Pipeline
+
+class DataGenerator(Sequence):
     """
     Generates data for Keras.
     
     Parameters
     ----------
-        df : pd.DataFrame
-            columns = ['sentence_string', ']
-    
-    
-    Vocab used = alphabet(26) + space_token(' ') + end_token('>')
+    df : pd.DataFrame
+        dataframe containing 
+    batch_size : int
+        subset size of the training sample
+    num_batch : int
+        number of batch
+    shuffle : bool
+        allow shuffling of indexes or not
     """
-    def __init__(self, df, max_seq_output_length, batch_size=32, n_classes=28, num_batch=0, shuffle=True):
+    def __init__(self, df, batch_size=32, num_batch=0, shuffle=True):
         self.df = df
-        self.max_seq_output_length = max_seq_output_length
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.n_classes = n_classes
         self.num_batch = num_batch
         self.shuffle = shuffle
 
+        # Initialize indexes
         self.indexes = np.arange(len(self.df))
+
+        # Initialize character map
+        self.char_map = {chr(i) : i - 96 for i in range(97, 123)}
+        self.char_map[" "] = 0
+        self.char_map[">"] = 27
+
 
     def __len__(self):
         """
         Denotes the number of batches per epoch
         """
+
         cal_num_batch = int(np.floor(self.df.shape[0] / self.batch_size))
         if (self.num_batch == 0) | (self.num_batch > cal_num_batch):
             self.num_batch = cal_num_batch
@@ -60,62 +76,177 @@ class AudioDataGenerator(keras.utils.Sequence):
         if self.shuffle:
             shuf(indexes_in_batch)
 
-        X, y, input_length, label_length = self.__data_generation()
+        # Load audio and transcripts
+        X_data_raw, y_data_raw = self._load_data(self.df, indexes_in_batch)
 
-        inputs = {'the_input': X,
-                  'the_labels': y,
+        # Preprocess and pad data
+        X_data, input_length = self._extract_features_and_pad(X_data_raw)
+        y_data, label_length = self._convert_transcript_and_pad(y_data_raw)
+
+        # X, y, input_length, label_length = self.__data_generation()
+
+        inputs = {'the_input': X_data,
+                  'the_labels': y_data,
                   'input_length': np.array([input_length]),
                   'label_length': np.array([label_length])}
 
-        outputs = {'ctc': np.zeros([self.batch_size])} # dummy data for dummy loss function
-        # print(inputs)
-        # print(outputs)
-        # print(X.shape)
-        # print(y.shape)
+        outputs = {'ctc': np.zeros([self.batch_size])}
+
         return inputs, outputs
+    
+    def _load_data(self, df, indexes_in_batch):
+        """
+        Loads the the corresponding frames (audio time series) from 
+        dataframe containing filename, filesize, transcript.
 
-    def on_epoch_end(self):
-        pass
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe containing filename, transcript
         
-    def __data_generation(self):
+        indexes_in_batch: list 
+            list containing the indexes of the audio filenames in the 
+            dataframe that is to be loaded.
+
+        Returns
+        -------
+        X_data_raw: list
+            list containing loaded audio time series
+        y_data_raw: list 
+            list containing transcripts corresponding to 
+            loaded audio
         """
-        Generates data containing batch_size samples
+
+        X_data_raw = []
+        y_data_raw = []
+
+        for i in indexes_in_batch:
+            # Read the path of the audio
+            path = df.iloc[i]['filename']
+            X_data_raw.append(path)
+
+            # Read transcript data
+            y_txt = df.iloc[i]['transcript']
+            y_data_raw.append(y_txt)
+
+        return X_data_raw, y_data_raw
+
+    def _extract_features_and_pad(self, X_data_raw):
+        """
+        Converts list of audio time series to MFCC 
+        Zero-pads each sequence to be equal length to the longest
+        sequence. Stores the length of each feature-sequence before
+        padding for the CTC.
+
+        Parameters
+        ----------
+        X_data_raw : list
+            List of the data containing path of the audio
+
+        Returns
+        -------
+        X_data : np.array
+            Array of the newly appended data (n, max_X_length, 
+            default_coefficients)
+        input_length : int
+            Length of the input
+        """
+
+        norm_feature_extractor = Pipeline(
+            steps = [
+                ("normalizer", AudioNormalizer()),
+                ("mfcc_feature_extractor", MFCCFeatureExtractor(append_delta=True))
+            ]
+        )
+
+        # Fit transform the audio files (normalized and have
+        # their feature extracted)
+        X_transformeds = norm_feature_extractor.fit_transform(X_data_raw)
+
+        # Get the longest frame
+        max_X_length = len(max(X_transformeds, key=lambda x: x.shape[0]))
         
-        TODO: This method currently implement dummy data. Please change to approriate methods.
+        # Initialize empty data for padding
+        X_data = np.empty([0, max_X_length, 39])
+        X_seq_lengths = []
+
+        for i in range(0, len(X_transformeds)):
+            X_transformeds[i] = X_transformeds[i].T
+            X_transformed_shape = X_transformeds[i].shape[0]
+
+            # Add zero to the end of the X.shape[1] (after transposed)
+            X_transformed_padded = pad_sequences(X_transformeds[i], maxlen=max_X_length, dtype='float', padding='post', truncating='post')
+
+            X_transformed_padded = X_transformed_padded.T
+            X_data = np.insert(X_data, i, X_transformed_padded, axis=0)
+            
+            # Append the length of the X and discards the first
+            # two outputs
+            X_seq_lengths.append(X_transformed_shape - 2)
+
+        input_length = np.array(X_seq_lengths)
+
+        return X_data, input_length
+
+    def _convert_text_to_int_sequence(self, text):
         """
-        X = self.__input_from_audio()
-        y = self.__labels_from_string()
+        Converts text to the corresponding int sequence.
 
-        input_length = self.max_seq_output_length # equals to output shape of Model, e.g. Model(X), 
-                                                  # this is the input length to the CTC
-        label_length = self.n_classes
+        Parameters
+        ----------
+        text : str
+            the transcripts that are going to be
+            transcribed to int.
 
-        return X, y, input_length, label_length
-
-    def __input_from_audio(self):
+        Returns
+        -------
+        int_sequence : list
+            list of the corresponding int sequence
+            of the given text.
         """
-        TODO: change implementation by using self.df instead of dummy data
+        int_sequence = []
+
+        for c in text:
+          int_sequence.append(char_map[c])  
+
+        return int_sequence
+
+    def _convert_transcript_and_pad(self, y_data_raw):
         """
-        X = np.array([[5 for x in range(39)] for y in range(300)]) # shape = (300, 39)
-        X = np.expand_dims(X, axis=0) # shape = (1, 300, 39)
+        Converts text to the corresponding int sequence.
 
-        return X
+        Parameters
+        ----------
+        y_data_raw : np.array
+            List of the data containing path of the audio
 
-    def __labels_from_string(self):
+        Returns
+        -------
+        y_data : np.array
+            Array of the newly int-encoded data 
+        input_length : int
+            Length of the input
         """
-        TODO: change implementation by using self.df instead of dummy data
-        """
-        vocab = set(string.ascii_lowercase)
-        vocab |= {' ', '>'}
 
-        char_to_index = {}
-        for i, v in enumerate(vocab):
-            char_to_index[v] = i
+        # Find longest sequence in y for padding
+        max_y_length = len(max(y_data_raw, key=len))
 
-        # Dummy data
-        vocab_index = list(range(len(vocab)))
-        y = np.random.choice(vocab_index, 100)
-        y = np.expand_dims(y, axis=0)
+        y_data = np.empty([0, max_y_length])
 
-        return y
-        
+        y_seq_length = []
+
+        # Converts to int and pads to be equal max_y_length
+        for i in range(0, len(y_data_raw)):
+            y_int = self._convert_text_to_int_sequence(y_data_raw[i])
+
+            y_seq_length.append(len(y_int))
+
+            for j in range(len(y_int), max_y_length):
+                y_int.append(0)
+            
+            y_data = np.insert(y_data, i, y_int, axis=0)
+
+        label_length = np.array(y_seq_length)
+
+        return y_data, label_length
+

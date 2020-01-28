@@ -37,7 +37,7 @@ class AudioNormalizer(TransformerMixin):
     "OSR_us_000_0011_8k_22012020_normalized.wav"]
     """
 
-    def __init__(self, sample_rate=16000, mono=True, output_dir="../data/processed/normalized"):
+    def __init__(self, sample_rate=16000, mono=True, output_dir="."):
         self.sample_rate = sample_rate
         self.mono = mono
         self.output_dir = output_dir
