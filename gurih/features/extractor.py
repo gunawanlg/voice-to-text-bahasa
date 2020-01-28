@@ -311,7 +311,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         ...]
     """
 
-    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False, output_dir="../data/processed/extracted"):
+    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False, output_dir="."):
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
