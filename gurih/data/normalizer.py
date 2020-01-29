@@ -19,6 +19,9 @@ class AudioNormalizer(TransformerMixin):
         Number of channels of the audio, `True` means 1 channel,
         `False` means stereo.
 
+    write_output : bool, default=False
+        Store the Mel features to pickle.
+
     output_dir: string, default='../data/processed/normalized'
         Output directory of where the normalized audio data
         will be stored.
@@ -37,10 +40,11 @@ class AudioNormalizer(TransformerMixin):
     "OSR_us_000_0011_8k_22012020_normalized.wav"]
     """
 
-    def __init__(self, sample_rate=16000, mono=True, output_dir="."):
+    def __init__(self, sample_rate=16000, mono=True, write_output=False, output_dir="."):
         self.sample_rate = sample_rate
         self.mono = mono
         self.output_dir = output_dir
+        self.write_output = write_output
 
     def fit(self, X, y=None):
         return self
@@ -71,12 +75,13 @@ class AudioNormalizer(TransformerMixin):
         for filename in X:
             signal, sample_rate = librosa.load(filename, sr=self.sample_rate, mono=self.mono)
 
-            filename = filename.split("/")[-1]
+            if self.write_output:
+                filename = filename.split("/")[-1]
 
-            # Generate new_filename consisting of {output_dir}_{original_file_name}_{date}_
-            # normalized and convert them to wav
-            new_filename = f"{processed_data_directory}/{filename[:-4]}_{date}_normalized.wav"
-            librosa.output.write_wav(new_filename, signal, sample_rate)
-            X_out.append(new_filename)
+                # Generate new_filename consisting of {output_dir}_{original_file_name}_{date}_
+                # normalized and convert them to wav
+                new_filename = f"{processed_data_directory}/{filename[:-4]}_{date}_normalized.wav"
+                librosa.output.write_wav(new_filename, signal, sample_rate)
+            X_out.append(signal)
 
         return X_out
