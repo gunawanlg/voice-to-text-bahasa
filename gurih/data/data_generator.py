@@ -1,3 +1,4 @@
+import math
 from random import shuffle as shuf
 import string
 import librosa
@@ -40,7 +41,8 @@ class DataGenerator(Sequence):
         # Initialize character map
         self.char_map = {chr(i) : i - 96 for i in range(97, 123)}
         self.char_map[" "] = 0
-        self.char_map[">"] = 27
+        self.char_map["."] = 27
+        self.char_map[","] = 28
 
 
     def __len__(self):
@@ -83,6 +85,7 @@ class DataGenerator(Sequence):
         X_data, input_length = self._extract_features_and_pad(X_data_raw)
         y_data, label_length = self._convert_transcript_and_pad(y_data_raw)
 
+        input_length = math.ceil(float(input_length - 11 + 1) / float(2))
         # X, y, input_length, label_length = self.__data_generation()
 
         inputs = {'the_input': X_data,
@@ -131,7 +134,8 @@ class DataGenerator(Sequence):
 
         return X_data_raw, y_data_raw
 
-    def _extract_features_and_pad(self, X_data_raw):
+    @staticmethod
+    def _extract_features_and_pad(X_data_raw):
         """
         Converts list of audio time series to MFCC 
         Zero-pads each sequence to be equal length to the longest
@@ -171,8 +175,8 @@ class DataGenerator(Sequence):
         X_seq_lengths = []
 
         for i in range(0, len(X_transformeds)):
-            X_transformeds[i] = X_transformeds[i].T
             X_transformed_shape = X_transformeds[i].shape[0]
+            X_transformeds[i] = X_transformeds[i].T
 
             # Add zero to the end of the X.shape[1] (after transposed)
             X_transformed_padded = pad_sequences(X_transformeds[i], maxlen=max_X_length, dtype='float', padding='post', truncating='post')
@@ -182,7 +186,8 @@ class DataGenerator(Sequence):
             
             # Append the length of the X and discards the first
             # two outputs
-            X_seq_lengths.append(X_transformed_shape - 2)
+            # X_seq_lengths.append(X_transformed_shape - 2)
+            X_seq_lengths.append(X_transformed_shape)
 
         input_length = np.array(X_seq_lengths)
 
@@ -207,7 +212,7 @@ class DataGenerator(Sequence):
         int_sequence = []
 
         for c in text:
-          int_sequence.append(char_map[c])  
+          int_sequence.append(self.char_map[c])  
 
         return int_sequence
 

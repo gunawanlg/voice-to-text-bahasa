@@ -272,7 +272,7 @@ class BaselineASRModel(_BaseModel):
         label_length = Input(shape=[1],dtype='int32',name="label_length")
         loss_out     = Lambda(_ctc_lambda_func, output_shape=(1,), name='ctc')([y_pred, labels, input_length, label_length])
 
-        self.model = Model(inputs=[input_in, labels, input_length, label_length], outputs=loss_out)
+        self.model = Model(inputs=[input_in, labels, input_length, label_length], outputs=[loss_out, y_pred])
         self.model._name = '_'.join(["BaselineASR",
                                      'f'+str(self._filters), 
                                      'k'+str(self._kernel_size), 
