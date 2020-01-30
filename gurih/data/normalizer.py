@@ -1,6 +1,7 @@
 from sklearn.base import TransformerMixin
 import librosa
 import os
+import json
 
 from datetime import datetime
 
@@ -19,28 +20,37 @@ class AudioNormalizer(TransformerMixin):
         Number of channels of the audio, `True` means 1 channel,
         `False` means stereo.
 
-    output_dir: string, default='../data/processed/normalized'
+    write_audio_output : bool, default=False
+        Store the Mel features to pickle.
+
+    output_dir : string, default='../data/processed/normalized'
         Output directory of where the normalized audio data
         will be stored.
+
+    encode : bool. default=True
+        Encode the filename as ids (True) or just leave it as the filename,
+        the idea is to compress the number of strings since appending the full
+        filename will eventually increase the file size.
 
     Examples
     --------
     Given an array of audio filename, we let the audio normalizer
-    transform the raw audio data to a normalized audio data for the
-    next ML pipeline.
+    transform the raw audio data to a normalized audio signal data for the
+    next preprocessing pipeline.
 
     >>> normalizer = AudioNormalizer()
     >>> X = ["OSR_us_000_0010_8k.wav", "OSR_us_000_0011_8k.wav"]
     >>> normalizer.transform(X)
-    >>> mfcc.transform(X)
-    ["OSR_us_000_0010_8k_22012020_normalized.wav",
-    "OSR_us_000_0011_8k_22012020_normalized.wav"]
+    {0: array([0., 0., 0., ..., 0., 0., 0.], dtype=float32), 1: 
+    array([0., 0., 0., ..., 0., 0., 0.], dtype=float32)}
     """
 
-    def __init__(self, sample_rate=16000, mono=True, output_dir="."):
+    def __init__(self, sample_rate=16000, mono=True, write_audio_output=False, output_dir=".", encode=True):
         self.sample_rate = sample_rate
         self.mono = mono
         self.output_dir = output_dir
+        self.write_audio_output = write_audio_output
+        self.encode = encode
 
     def fit(self, X, y=None):
         return self
@@ -56,11 +66,17 @@ class AudioNormalizer(TransformerMixin):
 
         Returns
         -------
-        X_out: 1-d array
-            List of normalized .wav audio filenames
+        signal_dict: dict
+            Dictionary of signal and corresponding ids (if encode=True) or 
+            filenames
         """
+        
+        # Create a dictionary to store key-value pairs of 
+        signal_dict = {}
 
-        X_out = []
+        # Create a dictionary to encode the name of the sample of ids
+        if self.encode:
+            id_dict = {}
 
         processed_data_directory  = self.output_dir
         date = datetime.today().strftime("%Y%m%d")
@@ -68,15 +84,27 @@ class AudioNormalizer(TransformerMixin):
         if not os.path.exists(processed_data_directory):
             os.mkdir(processed_data_directory)
 
-        for filename in X:
+        for i, filename in enumerate(X):
             signal, sample_rate = librosa.load(filename, sr=self.sample_rate, mono=self.mono)
 
-            filename = filename.split("/")[-1]
+            if self.write_audio_output:
+                filename = filename.split("/")[-1]
 
-            # Generate new_filename consisting of {output_dir}_{original_file_name}_{date}_
-            # normalized and convert them to wav
-            new_filename = f"{processed_data_directory}/{filename[:-4]}_{date}_normalized.wav"
-            librosa.output.write_wav(new_filename, signal, sample_rate)
-            X_out.append(new_filename)
+                # Generate filename consisting of {output_dir}_{original_file_name}_{date}_
+                # normalized and convert thedm to wav
+                filename = f"{processed_data_directory}/{filename[:-4]}_{date}_normalized.wav"
+                librosa.output.write_wav(filename, signal, sample_rate)
+            
+            # Save the filenames and signal and ecode them into int
+            if self.encode:
+                id_dict[i] = filename
+                signal_dict[i] = signal
+            else:
+                signal_dict[i] = signal 
 
-        return X_out
+        # Write the .json file to store the corresponding ids and filenames
+        if self.encode:
+            with open(f"{self.output_dir}/{date}_audio_encoding.json", "w") as f:
+                json.dump(id_dict, f)
+
+        return signal_dict
