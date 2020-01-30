@@ -2,8 +2,7 @@ import json
 
 from pydub import AudioSegment
 from pydub.utils import mediainfo
-from tqdm import tqdm_notebook as tqdm
-# from tqdm import tqdm as tqdm
+from tqdm.auto import tqdm
 
 
 class AeneasSplitter:
@@ -67,6 +66,7 @@ class AeneasSplitter:
         for fragment in tqdm(fragments):
             trimmed_audio = self._trim(audio, fragment)
             self._write_audio(trimmed_audio, fragment['id'])
+            self._write_text(fragment['lines'], fragment['id'])
 
     def _trim(self, audio, fragment):
         """
@@ -107,5 +107,10 @@ class AeneasSplitter:
         """
         out_filename = self.output_dir + self._filename + '_' + id + ".mp3"
         trimmed_audio.export(out_filename, format="mp3", **kwargs)
+
+    def _write_text(self, lines, id):
+        text_filename = self.output_dir + self._filename + '_' + id + ".txt"
+        with open(text_filename, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
 
         
