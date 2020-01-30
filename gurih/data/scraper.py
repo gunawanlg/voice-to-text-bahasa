@@ -57,6 +57,7 @@ class BibleIsScraper:
         self.urls = []
         self.scrape_text = True
         self.scrape_audio = True
+        self.debug = []
 
         if not os.path.exists(self.output_dir): 
             os.makedirs(self.output_dir)
@@ -141,14 +142,14 @@ class BibleIsScraper:
             ps = chapter_section.find_elements_by_css_selector("p")
 
             verses = []
-            for p in ps[1:]: # not including the chapter number
+            for p in ps: # not including the chapter number
                 p_text = p.get_attribute("innerHTML") # get all text
 
                 # Find disconnected verse, join it    
                 hanging_verse_idx = p_text.find('<')
                 if hanging_verse_idx != 0:
                     hanging_verse = p_text[:hanging_verse_idx]
-                    print(hanging_verse)
+                    self.debug.append(f"{url} {hanging_verse}")
                     last_verse = verses.pop()
                     verses.append(last_verse + " " + hanging_verse)
                 
