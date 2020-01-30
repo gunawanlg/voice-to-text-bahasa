@@ -355,14 +355,14 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
         Returns
         -------
-        X_out : 2-d array
+        mfcc_features_dict : 2-d array
             Array of Mel features
         """
 
-        X_out = []
+        mfcc_features_dict = {}
 
-        for filename in X:
-            signal, sample_rate = librosa.load(filename, sr=self.sample_rate)
+        for filename in X.keys():
+            signal = X[filename]
 
             signal = super()._apply_pre_emphasis(signal, self.pre_emphasis_coeff)
 
@@ -388,8 +388,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
                 delta_features_delta = super()._compute_delta(delta_features)
                 features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
 
-            X_out.append(features)
-            break
+            mfcc_features_dict[filename] = features
 
         if self.write_output:
             processed_data_directory  = self.output_dir
@@ -397,11 +396,10 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
             if not os.path.exists(processed_data_directory):
                 os.mkdir(processed_data_directory)
 
-            pickled_filename = f"{date}_mfcc_extracted.pkl"
-            with open(f"{processed_data_directory}/{pickled_filename}", "wb") as f:
-                pickle.dump(X_out, f)
+            npy_filename = f"{date}_mfcc_extracted.npy"
+            np.save(f"{processed_data_directory}/{npy_filename}", mfcc_features_dict)
 
-        return X_out
+        return mfcc_features_dict
 
     def fit_transform(self, X, y=None):
         return self.fit(X).transform(X)
