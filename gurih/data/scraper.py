@@ -14,8 +14,7 @@ from selenium import webdriver
 # from selenium.webdriver.support.ui import WebDriverWait
 # from selenium.webdriver.support import expected_conditions as EC
 
-# from tqdm import tqdm
-from tqdm import tqdm_notebook as tqdm
+from tqdm.auto import tqdm
 """
 tqdm.__version__ = '4.32.1'
 """
@@ -56,12 +55,18 @@ class BibleIsScraper:
         self.output_dir = output_dir
         self.data = []
         self.urls = []
+        self.scrape_text = True
+        self.scrape_audio = True
 
         if not os.path.exists(self.output_dir): 
             os.makedirs(self.output_dir)
             print("Output directory created at " + self.output_dir)
         else:
             print("Output directory is already created at " + self.output_dir)
+
+        print("Scrape text: " + str(self.scrape_text))
+        print("Scrape audio: " + str(self.scrape_audio))
+        print("Edit the configuration by setting corresponding attributes.")
             
     def get_urls(self):
         """
@@ -93,14 +98,28 @@ class BibleIsScraper:
         
         # Close the driver
         driver.close()
+    
+    def run(self, urls=None):
+        if not urls:
+            if not self.urls:
+                raise AttributeError("Urls not defined. Use get_urls() or provide urls parameter.")
+            else:
+                urls = self.urls
         
-    def scrape_all(self, urls=None):
-        if (not urls): 
-            urls = self.urls
+        print("Running scraper:")
+        print("Scrape text: " + str(self.scrape_text))
+        print("Scrape audio: " + str(self.scrape_audio))
         
-        for url in tqdm(urls):
-            new_data = self.scrape_page(url)
-            self.data.append(new_data)
+        if (self.scrape_audio or self.scrape_text) == False:
+            raise AttributeError("Either self.scrape_audio or self.scrape_text should be True.")
+        else:
+            for url in tqdm(urls):
+                try:
+                    new_data = self.scrape_page(url)
+                    self.data.append(new_data)
+                except Exception as e:
+                    print(url)
+                    print(e)
             
     def scrape_page(self, url):
         """
@@ -113,28 +132,49 @@ class BibleIsScraper:
         driver = webdriver.Chrome(self.driver_path)
         driver.get(url)
 
-        # Get all verse
-        chapter_section = driver.find_element_by_css_selector(".chapter")
-        verses          = chapter_section.find_elements_by_css_selector(".v")
-        list_verse      = [verse.get_attribute("innerHTML") for verse in verses]
-        chapter_string  = '\n\n'.join(list_verse)
+        chapter_string = ''
+        audio_title = ''
 
-        # Get audio file attributes
-        audio       = driver.find_element_by_css_selector(".audio-player")
-        audio_src   = audio.get_attribute("src")
-        audio_title = re.search("[^?]*", url[28:]).group() + ".mp3"
-        audio_title = audio_title.replace("/", "_")
-        audio_title = self.output_dir + audio_title
-        response    = urllib.request.urlopen(audio_src)
+        if self.scrape_text:
+            # Get all verses
+            chapter_section = driver.find_element_by_css_selector(".chapter")
+            ps = chapter_section.find_elements_by_css_selector("p")
 
-        with open(audio_title, "wb") as f:
-            f.write(response.read())
-            
-            # Close the driver
-            driver.close()
+            verses = []
+            for p in ps[1:]: # not including the chapter number
+                p_text = p.get_attribute("innerHTML") # get all text
+
+                # Find disconnected verse, join it    
+                hanging_verse_idx = p_text.find('<')
+                if hanging_verse_idx != 0:
+                    hanging_verse = p_text[:hanging_verse_idx]
+                    print(hanging_verse)
+                    last_verse = verses.pop()
+                    verses.append(last_verse + " " + hanging_verse)
+                
+                other_verses = p.find_elements_by_css_selector(".v")
+                other_verses = [other_verse.get_attribute("innerHTML") for other_verse in other_verses]
+                verses.extend(other_verses)
+
+            chapter_string = '\n\n'.join(verses)
+
+        if self.scrape_audio:
+            # Get audio file attributes
+            audio       = driver.find_element_by_css_selector(".audio-player")
+            audio_src   = audio.get_attribute("src")
+            audio_title = re.search("[^?]*", url[28:]).group() + ".mp3"
+            audio_title = audio_title.replace("/", "_")
+            audio_title = self.output_dir + audio_title
+            response    = urllib.request.urlopen(audio_src)
+
+            with open(audio_title, "wb") as f:
+                f.write(response.read())
+                
+        # Close the driver
+        driver.close()
 
         return [url, chapter_string, audio_title]
-    
+
     def to_dataframe(self):
         return pd.DataFrame(self.data, columns=["url", "chapter_string", "audio_title"])
     
