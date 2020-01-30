@@ -311,7 +311,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         ...]
     """
 
-    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False, output_dir="."):
+    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=True, output_dir="."):
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
@@ -361,6 +361,12 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
         mfcc_features_dict = {}
 
+        if self.write_output:
+            processed_data_directory  = self.output_dir
+            date = datetime.today().strftime("%Y%m%d")
+            if not os.path.exists(processed_data_directory):
+                os.mkdir(processed_data_directory)
+        
         for filename in X.keys():
             signal = X[filename]
 
@@ -390,14 +396,9 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
             mfcc_features_dict[filename] = features
 
-        if self.write_output:
-            processed_data_directory  = self.output_dir
-            date = datetime.today().strftime("%Y%m%d")
-            if not os.path.exists(processed_data_directory):
-                os.mkdir(processed_data_directory)
-
-            npy_filename = f"{date}_mfcc_extracted.npy"
-            np.save(f"{processed_data_directory}/{npy_filename}", mfcc_features_dict)
+            if self.write_output:
+                npy_filename = f"{filename}.npy"
+                np.save(f"{processed_data_directory}/{npy_filename}", mfcc_features_dict)
 
         return mfcc_features_dict
 

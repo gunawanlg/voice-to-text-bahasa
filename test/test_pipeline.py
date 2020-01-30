@@ -9,8 +9,9 @@ from datetime import datetime
 class PipelineTest(unittest.TestCase):
 
     def setUp(self):
-        self.X = ["test_data/INDASV_GEN_1.mp3"]
         self.output_dir = "test_data"
+        self.X = ["INDASV_GEN_1.mp3", "INDASV_GEN_2.mp3", "INDASV_SNG_1.mp3"]
+        self.X = [f"{self.output_dir}/{x}" for x in self.X]
         self.audio_normalizer = AudioNormalizer(output_dir=self.output_dir)
 
     def test_pipeline(self):
@@ -47,5 +48,4 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(pipeline_outputs[0].shape[1], 39)
 
 if __name__ == "__main__":
-
     unittest.main()
