@@ -61,7 +61,6 @@ class AeneasSplitterTest(unittest.TestCase):
             t_end = float(fragment['end'])
             in_duration = round(t_end - t_begin, 3) # seconds
 
-            test_info = mediainfo(out_filename)
             # out_duration = float(test_info['duration'])
             out_duration = test_audio.duration_seconds
             
