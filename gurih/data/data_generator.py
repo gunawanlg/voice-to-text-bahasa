@@ -120,14 +120,8 @@ class DataGenerator(Sequence):
 
         for idx in indexes_in_batch:
             x_tmp = np.load(f"{self.input_dir}{idx}.npy")
-            if x_tmp.shape[0] > self.max_seq_length:
-                raise ValueError(f"Found input sequence {x_tmp.shape[0]} more than {self.max_seq_length}")
-            elif x_tmp.shape[0] < self.max_seq_length:
-                tmp = np.empty([0, self.max_seq_length, x_tmp.shape[1]])
-                tmp[:x_tmp.shape[0]] = x_tmp
-                X.append(x_tmp)
-            else:
-                X.append(x_tmp)
+            x_tmp_padded = self._pad_sequence(x_tmp, self.max_seq_length)
+            X.append(x_tmp_padded)
 
             with open(f"{self.input_dir}{idx}.txt", 'r') as f:
                 y_str = f.readlines()[0]
@@ -154,161 +148,16 @@ class DataGenerator(Sequence):
 
         return inputs, outputs
     
-    # def _load_data(self, df, indexes_in_batch):
-    #     """
-    #     Loads the the corresponding frames (audio time series) from 
-    #     dataframe containing filename, filesize, transcript.
-
-    #     Parameters
-    #     ----------
-    #     df : pd.DataFrame
-    #         dataframe containing filename, transcript
+    @staticmethod
+    def _pad_sequence(x, max_seq_length):
+        """Zero pad input features sequence"""
+        out = None
+        if x.shape[0] > max_seq_length:
+                raise ValueError(f"Found input sequence {x.shape[0]} more than {max_seq_length}")
+        elif x.shape[0] < max_seq_length:
+            out = np.empty([0, max_seq_length, x.shape[1]])
+            out[:x.shape[0]] = x
+        else:
+            out = x
         
-    #     indexes_in_batch: list 
-    #         list containing the indexes of the audio filenames in the 
-    #         dataframe that is to be loaded.
-
-    #     Returns
-    #     -------
-    #     X_data_raw: list
-    #         list containing loaded audio time series
-    #     y_data_raw: list 
-    #         list containing transcripts corresponding to 
-    #         loaded audio
-    #     """
-
-    #     X_data_raw = []
-    #     y_data_raw = []
-
-    #     for i in indexes_in_batch:
-    #         # Read the path of the audio
-    #         path = df.iloc[i]['filename']
-    #         X_data_raw.append(path)
-
-    #         # Read transcript data
-    #         y_txt = df.iloc[i]['transcript']
-    #         y_data_raw.append(y_txt)
-
-    #     return X_data_raw, y_data_raw
-
-    # @staticmethod
-    # def _extract_features_and_pad(X_data_raw):
-    #     """
-    #     Converts list of audio time series to MFCC 
-    #     Zero-pads each sequence to be equal length to the longest
-    #     sequence. Stores the length of each feature-sequence before
-    #     padding for the CTC.
-
-    #     Parameters
-    #     ----------
-    #     X_data_raw : list
-    #         List of the data containing path of the audio
-
-    #     Returns
-    #     -------
-    #     X_data : np.array
-    #         Array of the newly appended data (n, max_X_length, 
-    #         default_coefficients)
-    #     input_length : int
-    #         Length of the input
-    #     """
-
-    #     norm_feature_extractor = Pipeline(
-    #         steps = [
-    #             ("normalizer", AudioNormalizer()),
-    #             ("mfcc_feature_extractor", MFCCFeatureExtractor(append_delta=True))
-    #         ]
-    #     )
-
-    #     # Fit transform the audio files (normalized and have
-    #     # their feature extracted)
-    #     X_transformeds = norm_feature_extractor.fit_transform(X_data_raw)
-
-    #     # Get the longest frame
-    #     max_X_length = len(max(X_transformeds, key=lambda x: x.shape[0]))
-        
-    #     # Initialize empty data for padding
-    #     X_data = np.empty([0, max_X_length, 39])
-    #     X_seq_lengths = []
-
-    #     for i in range(0, len(X_transformeds)):
-    #         X_transformed_shape = X_transformeds[i].shape[0]
-    #         X_transformeds[i] = X_transformeds[i].T
-
-    #         # Add zero to the end of the X.shape[1] (after transposed)
-    #         X_transformed_padded = pad_sequences(X_transformeds[i], maxlen=max_X_length, dtype='float', padding='post', truncating='post')
-
-    #         X_transformed_padded = X_transformed_padded.T
-    #         X_data = np.insert(X_data, i, X_transformed_padded, axis=0)
-            
-    #         # Append the length of the X and discards the first
-    #         # two outputs
-    #         # X_seq_lengths.append(X_transformed_shape - 2)
-    #         X_seq_lengths.append(X_transformed_shape)
-
-    #     input_length = np.array(X_seq_lengths)
-
-    #     return X_data, input_length
-
-    # def _convert_text_to_int_sequence(self, text):
-    #     """
-    #     Converts text to the corresponding int sequence.
-
-    #     Parameters
-    #     ----------
-    #     text : str
-    #         the transcripts that are going to be
-    #         transcribed to int.
-
-    #     Returns
-    #     -------
-    #     int_sequence : list
-    #         list of the corresponding int sequence
-    #         of the given text.
-    #     """
-    #     int_sequence = []
-
-    #     for c in text:
-    #       int_sequence.append(self.char_map[c])  
-
-    #     return int_sequence
-
-    # def _convert_transcript_and_pad(self, y_data_raw):
-    #     """
-    #     Converts text to the corresponding int sequence.
-
-    #     Parameters
-    #     ----------
-    #     y_data_raw : np.array
-    #         List of the data containing path of the audio
-
-    #     Returns
-    #     -------
-    #     y_data : np.array
-    #         Array of the newly int-encoded data 
-    #     input_length : int
-    #         Length of the input
-    #     """
-
-    #     # Find longest sequence in y for padding
-    #     max_y_length = len(max(y_data_raw, key=len))
-
-    #     y_data = np.empty([0, max_y_length])
-
-    #     y_seq_length = []
-
-    #     # Converts to int and pads to be equal max_y_length
-    #     for i in range(0, len(y_data_raw)):
-    #         y_int = self._convert_text_to_int_sequence(y_data_raw[i])
-
-    #         y_seq_length.append(len(y_int))
-
-    #         for j in range(len(y_int), max_y_length):
-    #             y_int.append(0)
-            
-    #         y_data = np.insert(y_data, i, y_int, axis=0)
-
-    #     label_length = np.array(y_seq_length)
-
-    #     return y_data, label_length
-
+        return out
