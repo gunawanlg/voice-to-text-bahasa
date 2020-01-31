@@ -23,7 +23,7 @@ def ctc_decode(ctc_matrix, idx_to_char_map, **kwargs):
     for i, example in enumerate(output):
         output_text = ""
         for timestep in example.numpy():
-            output_text += index_to_char_map[t]
+            output_text += idx_to_char_map[timestep]
             output[i] = output_text
 
     return output
