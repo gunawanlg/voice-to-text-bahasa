@@ -155,7 +155,7 @@ class DataGenerator(Sequence):
         if x.shape[0] > max_seq_length:
                 raise ValueError(f"Found input sequence {x.shape[0]} more than {max_seq_length}")
         elif x.shape[0] < max_seq_length:
-            out = np.empty([0, max_seq_length, x.shape[1]])
+            out = np.zeros([0, max_seq_length, x.shape[1]])
             out[:x.shape[0]] = x
         else:
             out = x
