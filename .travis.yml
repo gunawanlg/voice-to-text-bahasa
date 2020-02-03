@@ -8,7 +8,7 @@ os:
   - linux
 
 before_install:
-  - sudo add-apt-repository ppa:jonathonf/ffmpeg-4
+  - sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y
   - sudo apt-get -y install ffmpeg
   - "export PYTHONPATH=$PYTHONPATH:$(pwd)"
 
@@ -17,3 +17,4 @@ install:
 
 script:
   - cd test && python -m unittest discover .
+
