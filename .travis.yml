@@ -8,8 +8,8 @@ os:
   - linux
 
 before_install:
-  - sudo apt-get update
-  - sudo apt-get -y install libav-tools ffmpeg
+  - sudo add-apt-repository ppa:jonathonf/ffmpeg-4
+  - sudo apt-get -y install ffmpeg
   - "export PYTHONPATH=$PYTHONPATH:$(pwd)"
 
 install:
