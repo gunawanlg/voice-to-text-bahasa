@@ -37,9 +37,12 @@ class Summarizer(TransformerMixin):
         transcripts = []
         transcript_lengths = []
         total_commas = []
-        split_by_comma_lengths = []
-        max_split_by_comma_lengths = []
-        min_split_by_comma_lengths = []
+        split_by_comma_clengths = []
+        max_split_by_comma_clengths = []
+        min_split_by_comma_clengths = []
+        split_by_comma_wlengths = []
+        max_split_by_comma_wlengths = []
+        min_split_by_comma_wlengths = []
 
         for filename in X:
             with open(filename) as f:
@@ -75,10 +78,16 @@ class Summarizer(TransformerMixin):
                     # find out if a sentence contains more than one sentences
                     # by inferring it from the length of the splits by comma
                     split_by_comma = transcript.split(",")
-                    split_by_comma_length = [len(sentence) for sentence in split_by_comma]
-                    split_by_comma_lengths.append(split_by_comma_length)
-                    max_split_by_comma_lengths.append(max(split_by_comma_length))
-                    min_split_by_comma_lengths.append(min(split_by_comma_length))
+                    split_by_comma_clength = [len(sentence) for sentence in split_by_comma]
+                    split_by_comma_wlength = [len(sentence.split(" ")) for sentence in split_by_comma]
+
+                    split_by_comma_clengths.append(split_by_comma_clength)
+                    max_split_by_comma_clengths.append(max(split_by_comma_clength))
+                    min_split_by_comma_clengths.append(min(split_by_comma_clength))
+
+                    split_by_comma_wlengths.append(split_by_comma_wlength)
+                    max_split_by_comma_wlengths.append(max(split_by_comma_wlength))
+                    min_split_by_comma_wlengths.append(min(split_by_comma_wlength))
         
         # Generate DataFrame for the ouput
         df = pd.DataFrame({
@@ -87,9 +96,12 @@ class Summarizer(TransformerMixin):
                 "transcript": transcripts,
                 "transcript_length": transcript_lengths,
                 "total_comma" : total_commas,
-                "split_by_comma_length": split_by_comma_lengths,
-                "max_split_by_comma_length" : max_split_by_comma_lengths,
-                "min_split_by_comma_length" : min_split_by_comma_lengths
+                "split_by_comma_length": split_by_comma_clengths,
+                "max_split_by_comma_length" : max_split_by_comma_clengths,
+                "min_split_by_comma_length" : min_split_by_comma_clengths,
+                "split_by_comma_wlength": split_by_comma_wlengths,
+                "max_split_by_comma_wlength" : max_split_by_comma_wlengths,
+                "min_split_by_comma_wlength" : min_split_by_comma_wlengths
             })
 
         # Write the output to .csv if True
