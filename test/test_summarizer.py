@@ -30,7 +30,7 @@ class SummarizerTest(unittest.TestCase):
         print(csvs)
 
         self.assertEqual(type(summarized_df), pd.DataFrame)
-        self.assertEqual(summarized_df.shape[1], 8)
+        self.assertEqual(summarized_df.shape[1], 11)
         self.assertGreater(summarized_df.shape[0], 1)
         self.assertTrue(csv_output in csvs)
 
