@@ -20,7 +20,7 @@ class BibleIsScraper:
     """
     BibleIsScraper(obj)
 
-    Latest modified: January 17, 2020
+    Latest modified: February 3, 2020
 
     Scrape transcription and audio files from https://live.bible.is/bible/
     As page layout may dynamically change in the future, following methods may need adjustment:
@@ -156,21 +156,27 @@ class BibleIsScraper:
             ps = chapter_section.find_elements_by_css_selector("p")
 
             verses = []
-            for p in ps: # not including the chapter number
-                p_text = p.get_attribute("innerHTML") # get all text
+            if len(ps) != 0:
+                for p in ps: # not including the chapter number
+                    p_text = p.get_attribute("innerHTML") # get all text
 
-                # Find disconnected verse, join it    
-                hanging_verse_idx = p_text.find('<')
-                if hanging_verse_idx != 0:
-                    hanging_verse = p_text[:hanging_verse_idx]
-                    self.debug.append(f"{url} {hanging_verse}")
-                    if len(verses) == 0: # handle occurence in first <p>
-                        verses.append(hanging_verse)
-                    else:
-                        last_verse = verses.pop()
-                        verses.append(last_verse + " " + hanging_verse)
-                
-                other_verses = p.find_elements_by_css_selector(".v")
+                    # Find disconnected verse, join it    
+                    hanging_verse_idx = p_text.find('<')
+                    if hanging_verse_idx != 0:
+                        hanging_verse = p_text[:hanging_verse_idx]
+                        self.debug.append(f"{url} {hanging_verse}")
+                        if len(verses) == 0: # handle occurence in first <p>
+                            verses.append(hanging_verse)
+                        else:
+                            last_verse = verses.pop()
+                            verses.append(last_verse + " " + hanging_verse)
+                    
+                    other_verses = p.find_elements_by_css_selector(".v")
+                    other_verses = [other_verse.get_attribute("innerHTML") for other_verse in other_verses]
+                    verses.extend(other_verses)
+            # handle chapter not having any p element
+            else:
+                other_verses = chapter_section.find_elements_by_css_selector(".v")
                 other_verses = [other_verse.get_attribute("innerHTML") for other_verse in other_verses]
                 verses.extend(other_verses)
 
