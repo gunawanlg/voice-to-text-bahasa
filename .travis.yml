@@ -9,7 +9,7 @@ os:
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get -y install libav-tools ffprobe ffmpeg
+  - sudo apt-get -y install libav-tools ffmpeg
   - "export PYTHONPATH=$PYTHONPATH:$(pwd)"
 
 install:
