@@ -13,11 +13,8 @@ from selenium import webdriver
 # from selenium.webdriver.common.by import By
 # from selenium.webdriver.support.ui import WebDriverWait
 # from selenium.webdriver.support import expected_conditions as EC
-
 from tqdm.auto import tqdm
-"""
-tqdm.__version__ = '4.32.1'
-"""
+
 
 class BibleIsScraper:
     """
@@ -48,6 +45,23 @@ class BibleIsScraper:
     ----------
     driver_path : str
         chromedriver.exe filepath
+
+    Example
+    -------
+    If using get_urls for getting all urls:
+    >>> scraper = BibleisScraper()
+    >>> scraper.get_urls()
+    >>> scraper.run()
+
+    if providing your own urls:
+    >>> urls = ["https://url_one", "https://url_two"]
+    >>> scraper = BibleisScraper()
+    >>> scraper.run(urls)
+
+    To write the output:
+    >>> len(scraper.data)
+    2
+    >>> scraper.write_csv("bibleis_transcription.csv")
     """
     def __init__(self, base_url, driver_path, output_dir='../../dataset/raw/bibleis/'):
         self.base_url = base_url
@@ -150,8 +164,11 @@ class BibleIsScraper:
                 if hanging_verse_idx != 0:
                     hanging_verse = p_text[:hanging_verse_idx]
                     self.debug.append(f"{url} {hanging_verse}")
-                    last_verse = verses.pop()
-                    verses.append(last_verse + " " + hanging_verse)
+                    if len(verses) == 0: # handle occurence in first <p>
+                        verses.append(hanging_verse)
+                    else:
+                        last_verse = verses.pop()
+                        verses.append(last_verse + " " + hanging_verse)
                 
                 other_verses = p.find_elements_by_css_selector(".v")
                 other_verses = [other_verse.get_attribute("innerHTML") for other_verse in other_verses]
@@ -182,5 +199,31 @@ class BibleIsScraper:
     def write_csv(self, filename=None):
         if filename is None:
             filename = self.output_dir + 'bibleis_transcription.csv'
+
+        df = self.to_dataframe()
+        self._check_null_df(df)
+
         self.to_dataframe().to_csv(filename, sep=',', line_terminator='\n', index=False)
         print("Data written in "+filename)
+
+    def _check_null_df(self, df):
+        """
+        Check for null values in dataframe before writing it to .csv
+
+        Parameters
+        ----------
+        df : pandas.DataFrame(columns=["url", "chapter_string", "audio_title"])
+            dataframe of scraped data
+        Raises
+        ------
+        ValueError
+            if dataframe contain null values in either text or audio column
+        """
+        if self.scrape_text == True:
+            sum_null_text = df['chapter_string'].isnull().sum()
+            if sum_null_text > 0:
+                raise ValueError(f"Found {sum_null_text} null values in chapter_string column.")
+        if self.scrape_audio == True:
+            sum_null_audio = df['audio_title'].isnull().sum()
+            if sum_null_audio > 0:
+                raise ValueError(f"Found {sum_null_audio} null values in audio_title column.")
