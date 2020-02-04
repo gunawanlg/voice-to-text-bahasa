@@ -26,7 +26,8 @@ setup(
         "tensorflow==2.1.0",
         "tqdm==4.42.0",
         "matplotlib==3.1.2",
-        "tinytag==1.2.2"
+        "tinytag==1.2.2",
+        "pydub==0.23.1"
     ],
     include_package_data=False,
     # zip_safe=False,
