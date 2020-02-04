@@ -1,12 +1,14 @@
-#!/usr/bin/env python
-# coding=utf-8
-
+import os
 import json
 import glob
 
+from tqdm.auto import tqdm
 from aeneas.executetask import ExecuteTask
 from aeneas.task import Task
-
+from aeneas.logger import Logger
+from aeneas.exacttiming import TimeValue
+from aeneas.dtw import DTWAlgorithm
+from aeneas.runtimeconfiguration import RuntimeConfiguration
 from sklearn.base import TransformerMixin
 
 class Aligner(TransformerMixin):
@@ -23,17 +25,18 @@ class Aligner(TransformerMixin):
     Example
     -------
     >>> X = [ (r"path/to/audio.mp3", r"path/to/audio_transcription.txt) ]
-    >>> cligner = Aligner('ind', 'aeneas')
+    >>> aligner = Aligner('ind', 'aeneas')
     >>> alignment_dict = aligner.transform(X)
     >>> print(aligned_dict[0]['fragments'])
     """
-    def __init__(self, language, aligner_type='aeneas', audio_type='mp3', text_type='plain', output_type='json', write_output=False):
+    def __init__(self, language, aligner_type='aeneas', text_type='plain', output_type='json', write_output=False, max_audio_length=500, print_log=False):
         self.language = language
         self.aligner_type = aligner_type
-        self.audio_type = audio_type
         self.text_type = text_type
         self.output_type = output_type
         self.write_output = write_output
+        self.max_audio_length = unicode(str(max_audio_length))
+        self.print_log = print_log
         self.res = []
 
     def _validate_availability(self, X):
@@ -93,7 +96,7 @@ class Aligner(TransformerMixin):
         json_availability_dict = self._validate_availability(X)
 
         # Create Task
-        for x in X:
+        for x in tqdm(X):
             json_file_path_absolute = x[0][:-4] + ".json"
 
             if json_availability_dict[json_file_path_absolute]:
@@ -103,7 +106,20 @@ class Aligner(TransformerMixin):
                     task.text_file_path_absolute = x[1]
                 
                     # Process Task
-                    ExecuteTask(task).execute()
+                    if self.print_log:
+                        logger = Logger(tee=True)
+                    else:
+                        logger = None
+
+                    rconf = None
+                    rconf = RuntimeConfiguration()
+                    rconf.set_granularity(3)
+                    rconf[RuntimeConfiguration.MFCC_MASK_NONSPEECH] = False
+                    rconf[RuntimeConfiguration.TASK_MAX_AUDIO_LENGTH] = TimeValue(self.max_audio_length)
+                    rconf[RuntimeConfiguration.DTW_ALGORITHM] = DTWAlgorithm.STRIPE
+                    rconf[RuntimeConfiguration.VAD_MIN_NONSPEECH_LENGTH] = TimeValue(u"0.050")
+                    rconf.set_tts(3)
+                    ExecuteTask(task, rconf=rconf, logger=logger).execute()
 
                     self.res.append(json_file_path_absolute)
 
