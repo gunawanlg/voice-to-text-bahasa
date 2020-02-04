@@ -7,6 +7,7 @@ See notebook for example usage.
 """
 from math import ceil
 
+import tensorflow.keras.backend as K
 from tensorflow.keras.models import Model
 # from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
 from tensorflow.keras.backend import ctc_batch_cost
@@ -107,7 +108,7 @@ class _BaseModel:
         """Plot train/val loss figure created from _save_history()"""
         if self.fig is None:
             raise AttributeError("Model is not fitted. No history figure found. Call fit() method first")
-        plt.show(self.fig)
+        return self.fig
 
     def _fit(self, X_train, y_train, X_val=None, y_val=None, epochs=100, batch_size=32, min_delta=1e-4, patience=2):
         """
@@ -200,6 +201,7 @@ class _BaseModel:
             plt.savefig(self._doc_path+self.model.name+'.png', dpi=300)
 
         self.fig = fig
+        plt.close(fig)
 
     @property
     def dir_path(self):
@@ -235,7 +237,7 @@ class BaselineASRModel(_BaseModel):
 
     Example
     -------
-        See 3.0-glg-baseline-model.ipynb for example
+        See 3.0-glg-baseline-model.ipynb for detailed example
     """
     def __init__(self, input_shape, vocab_len, filters=200, kernel_size=11, strides=2, padding='valid', 
                  n_lstm_units=200):
@@ -282,7 +284,7 @@ class BaselineASRModel(_BaseModel):
                               output_shape=(1,), 
                               name='ctc')([y_pred, labels, input_length, label_length])
 
-        self.model = Model(inputs=[input_in, labels, input_length, label_length], outputs=[loss_out, y_pred])
+        self.model = Model(inputs=[input_in, labels, input_length, label_length], outputs=[loss_out])
         self.model._name = '_'.join(["BaselineASR",
                                      'f'+str(self._filters), 
                                      'k'+str(self._kernel_size), 
@@ -316,8 +318,13 @@ class BaselineASRModel(_BaseModel):
         self.model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=optimizer, **kwargs)
 
     def fit(self, *args, **kwargs):
-        """Fit the model"""
-        self._fit(*args, **kwargs)
+        """
+        Fit the model.
+        
+        TODO: currently not implemented. use fit_generator instead.
+        """
+        # self._fit(*args, **kwargs)
+        raise AttributeError("Method fit() is not implemented. Please use fit_generator() instead.")
 
     def fit_generator(self, train_generator, validation_generator=None, epochs=1, **kwargs):
         """
@@ -348,14 +355,34 @@ class BaselineASRModel(_BaseModel):
         **kwargs
             keras fit_generator keyword arguments
         """
-        self.model.fit_generator(generator=train_generator, 
+        self.history = self.model.fit_generator(generator=train_generator, 
                                  validation_data=validation_generator,
                                  epochs=epochs,
+                                 callbacks=self.callbacks,
                                  **kwargs)
+        self._save_history_figure()
 
-    def evaluate(self, X_test, y_test):
-        return self.model.evaluate(X_test, y_test)
+    # def evaluate(self, X_test, y_test):
+    #     return self.model.evaluate(X_test, y_test)
 
     def predict(self, X_test):
-        y_pred = self.model.predict(X_test)
-        return y_pred
+        """
+        Compute CTC Matrix of input.
+
+        Parameters
+        ----------
+        X_test : np.array[shape=(m, max_seq_length, features)]
+            m examples mfcc input of audio data 
+        
+        Return
+        ------
+        ctc_matrix : np.array[shape=(m, ctc_input_length, features)]
+            ctc_matrix output of X_test
+        """
+        input_data = self.model.get_layer('the_input').input
+        y_pred = self.model.get_layer('ctc').input[0]
+        pred_func = K.function([input_data], [y_pred])
+
+        ctc_matrix = pred_func(X_test)
+
+        return ctc_matrix[0]

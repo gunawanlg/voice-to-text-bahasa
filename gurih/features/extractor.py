@@ -350,13 +350,13 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
         Parameters
         ----------
-        X : 1-d np.array
+        X : dict
             The data to transform
 
         Returns
         -------
-        mfcc_features_dict : 2-d array
-            Array of Mel features
+        mfcc_features_dict : dict
+            Dict of array of Mel features
         """
 
         mfcc_features_dict = {}
@@ -397,8 +397,8 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
             mfcc_features_dict[filename] = features
 
             if self.write_output:
-                npy_filename = f"{filename}.npy"
-                np.save(f"{processed_data_directory}/{npy_filename}", mfcc_features_dict)
+                npz_filename = f"{filename}.npz"
+                np.savez(f"{processed_data_directory}/{npz_filename}", features)
 
         return mfcc_features_dict
 
