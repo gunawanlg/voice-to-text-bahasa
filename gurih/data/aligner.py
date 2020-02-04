@@ -18,9 +18,13 @@ class Aligner(TransformerMixin):
     Parameters
     ----------
     language : str
-        three character string indicated by ISO 639-3 language code.
-    aligner_type : str
-        by default use 'aeneas'
+        Three character string indicated by ISO 639-3 language code.
+    
+    max_audio_length : int, default=500
+        Maximum audio duration required for the input
+
+    print_log : bool, default=True
+        Print out log or not
     
     Example
     -------
@@ -29,9 +33,8 @@ class Aligner(TransformerMixin):
     >>> alignment_dict = aligner.transform(X)
     >>> print(aligned_dict[0]['fragments'])
     """
-    def __init__(self, language, aligner_type='aeneas', text_type='plain', output_type='json', write_output=False, max_audio_length=500, print_log=False):
+    def __init__(self, language, text_type='plain', output_type='json', write_output=False, max_audio_length=500, print_log=False):
         self.language = language
-        self.aligner_type = aligner_type
         self.text_type = text_type
         self.output_type = output_type
         self.write_output = write_output
