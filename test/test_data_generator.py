@@ -5,49 +5,61 @@ import unittest
 
 import numpy as np
 
+from sklearn.pipeline import Pipeline
+from gurih.data.normalizer import AudioNormalizer
 from gurih.data.data_generator import DataGenerator
+from gurih.features.extractor import MFCCFeatureExtractor
+from gurih.models.model_utils import CharMap
+
 
 class DataGeneratorTest(unittest.TestCase):
     """Test suite for DataGenerator class"""
     @classmethod
     def setUpClass(cls):
         """
-        Make dummy .npy and .txt
+        Make dummy .npz and .txt
         """
-        if not os.path.exists("test_generator/"): os.makedirs("test_generator/")
-        X_dummy = np.random.uniform(-1, 1, size=(10, 300, 39))
-        for i, x_dummy in enumerate(X_dummy):
-            np.save(f"test_generator/{i}.npy", x_dummy)
+        input_dir = "test_data/data_generator/"
         
-        vocab = list(string.ascii_lowercase)
-        vocab.insert(0, ' ')
-        vocab.extend(['.', ',']) # space_token, end_token
-        Y_dummy = np.random.choice(vocab, size=(10, 100))
-        for i, y_dummy in enumerate(Y_dummy):
-            with open(f"test_generator/{i}.txt", 'w', encoding='utf-8') as f:
-                f.writelines(y_dummy)
+        X = glob.glob(input_dir+"*.mp3")
+
+        pipeline = Pipeline(
+            steps = [
+                ("normalizer", AudioNormalizer(output_dir=input_dir)),
+                ("mfcc_feature_extractor", MFCCFeatureExtractor(write_output=True,
+                                                                output_dir=input_dir,
+                                                                append_delta=True))
+            ]
+        )
+        _ = pipeline.fit_transform(X)
+        cls.input_dir = input_dir
 
     @classmethod
     def tearDownClass(cls):
         """
-        Delete dummy .npy and .txt
+        Delete dummy .npz and .txt
         """
-        npy_files = glob.glob("test_generator/*.npy")
-        txt_files = glob.glob("test_generator/*.txt")
-        for npy_file, txt_file in zip(npy_files, txt_files):
-            os.remove(npy_file)
-            os.remove(txt_file)
-        
-        os.removedirs("test_generator/")
+        npz_files = glob.glob(cls.input_dir+"*.npz")
+        json_files = glob.glob(cls.input_dir+"*.json")
+        for npz_file in npz_files:
+            os.remove(npz_file)
+        for json_file in json_files:
+            os.remove(json_file)
 
     def test_get_item(self):
-        char_to_idx_map = {chr(i) : i - 96 for i in range(97, 123)}
-        char_to_idx_map[" "] = 0
-        char_to_idx_map["."] = 27
-        char_to_idx_map[","] = 28
-        char_to_idx_map["%"] = 29
+        CHAR_TO_IDX_MAP = CharMap.CHAR_TO_IDX_MAP
 
-        generator = DataGenerator("test_generator/", 300, char_to_idx_map, batch_size=6)
+        MAX_SEQ_LENGTH = 2500
+        MAX_LABEL_LENGTH = 100
+        BATCH_SIZE = 1
+
+        generator = DataGenerator(input_dir=self.input_dir,
+                                max_seq_length=MAX_SEQ_LENGTH,
+                                max_label_length=MAX_LABEL_LENGTH,
+                                ctc_input_length=1245,
+                                char_to_idx_map=CHAR_TO_IDX_MAP,
+                                batch_size=BATCH_SIZE)
+
         batch0, _ = generator.__getitem__(0)
         batch1, _ = generator.__getitem__(1)
 
@@ -58,12 +70,12 @@ class DataGeneratorTest(unittest.TestCase):
         input_length = batch0.get("input_length")
         label_length = batch0.get("label_length")
 
-        self.assertTupleEqual(x0.shape, (6, 300, 39))
-        self.assertTupleEqual(x1.shape, (4, 300, 39))
-        self.assertTupleEqual(y0.shape, (6, 100))
-        self.assertTupleEqual(y1.shape, (4, 100))
-        self.assertEqual(input_length.shape[0], 6)
-        self.assertEqual(label_length.shape[0], 6)
+        self.assertTupleEqual(x0.shape, (1, MAX_SEQ_LENGTH, 39))
+        self.assertTupleEqual(x1.shape, (1, MAX_SEQ_LENGTH, 39))
+        self.assertTupleEqual(y0.shape, (1, MAX_LABEL_LENGTH))
+        self.assertTupleEqual(y1.shape, (1, MAX_LABEL_LENGTH))
+        self.assertEqual(input_length.shape[0], 1)
+        self.assertEqual(label_length.shape[0], 1)
 
 
 if __name__ == "__main__":
