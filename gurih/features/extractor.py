@@ -278,7 +278,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         Number of lifter.
 
     cep_num: int, default=13
-        Number of cepstral coefficients
+        Number of cepstral coefficients.
 
     dct_type : int, default=2
         Type of numpy discrete consine transform.
@@ -287,10 +287,13 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         Normalization mode of the dct.
 
     append_energy:
-        Replace the zeroth cepstral coeff with the energy 
+        Replace the zeroth cepstral coeff with the energy.
 
     append_delta : bool, default=False
         Append the delta features to features.
+
+    low_memory : bool, default=False
+        Save the features inside a dict or not
     
     write_output : bool, default=False
         Store the Mel features to pickle.
@@ -317,7 +320,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         ...]
     """
 
-    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, cep_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_energy=True, append_delta=False, write_output=True, output_dir="."):
+    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, cep_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_energy=True, append_delta=False, low_memory=False, write_output=True, output_dir="."):
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
@@ -333,6 +336,8 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         
         self.append_delta = append_delta
         self.append_energy = True
+
+        self.low_memory = low_memory
         self.write_output = write_output
         self.output_dir = output_dir
     
@@ -368,7 +373,8 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
             Dict of array of Mel features
         """
 
-        mfcc_features_dict = {}
+        if not self.low_memory:
+            mfcc_features_dict = {}
 
         if self.write_output:
             processed_data_directory  = self.output_dir
@@ -406,13 +412,17 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
                 delta_features_delta = super()._compute_delta(delta_features)
                 features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
 
-            mfcc_features_dict[filename] = features
+            if not self.low_memory:
+                mfcc_features_dict[filename] = features
 
             if self.write_output:
                 npz_filename = f"{filename}.npz"
                 np.savez(f"{processed_data_directory}/{npz_filename}", features)
 
-        return mfcc_features_dict
+        if not self.low_memory:
+            return mfcc_features_dict
+        else:
+            return 0
 
     def fit_transform(self, X, y=None):
         return self.fit(X).transform(X)
