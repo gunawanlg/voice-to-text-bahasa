@@ -1,17 +1,16 @@
 import unittest
 
-from gurih.data.scraper import BibleIsScraper
+# from gurih.data.scraper import BibleIsScraper
 
 class BibleisScraperTest(unittest.TestCase):
     """Test suite for BibleIsScraper class"""
     @classmethod
     def setUpClass(cls):
-        base_url = "https://live.bible.is/bible/INDASV/MRK/1?audio_type=audio"
-        cls._scraper = BibleIsScraper(base_url, "chromedriver.exe")
+        pass
         
     @classmethod
     def tearDownClass(cls):
-        del cls._scraper
+        pass
 
     def test_scrape_page(self):
         """
