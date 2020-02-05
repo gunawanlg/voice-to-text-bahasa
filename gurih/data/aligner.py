@@ -73,6 +73,20 @@ class Aligner(TransformerMixin):
         return json_availability_dict
 
     def check_missing(self, X):
+        """
+        Check the audios that aren't succesfully aligned
+
+        Parameters
+        ----------
+        X: 1-d array
+            list of tuples of 
+            (r"path/to/audio.mp3", r"path/to/audio_transcription.txt)
+
+        Return
+        ------
+        missing_jsons : list
+            list of unaligned filenames
+        """
         json_availability_dict = self._validate_availability(X)
         missing_jsons = [k for k,v in json_availability_dict.items() if v]
         return missing_jsons
