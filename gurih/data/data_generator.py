@@ -19,7 +19,7 @@ class DataGenerator(Sequence):
     Parameters
     ----------
     input_dir : str
-        directory of .npy and .txt transcription
+        directory of .npz and .txt transcription
     max_seq_length : int
         maximum sequence length of ASR model
     char_to_idx_map : dict
@@ -58,15 +58,18 @@ class DataGenerator(Sequence):
     'input_length': array([145]),
     'label_length': array([28])}
     """
-    def __init__(self, input_dir, max_seq_length, char_to_idx_map, batch_size=32, num_batch=0, shuffle=True):
+    def __init__(self, input_dir, max_seq_length, max_label_length, ctc_input_length,
+                 char_to_idx_map, batch_size=32, num_batch=0, shuffle=True):
         self.input_dir = input_dir
         self.max_seq_length = max_seq_length
+        self.max_label_length = max_label_length
+        self.ctc_input_length = ctc_input_length
         self.char_to_idx_map = char_to_idx_map
         self.batch_size = batch_size
         self.num_batch = num_batch
         self.shuffle = shuffle
 
-        features_filename = sorted(glob.glob(input_dir+"*.npy"))
+        features_filename = sorted(glob.glob(input_dir+"*.npz"))
         transcription_filename = sorted(glob.glob(input_dir+"*.txt"))
 
         n_features = len(features_filename)
@@ -114,20 +117,21 @@ class DataGenerator(Sequence):
         # Load audio and transcript
         X = []
         y = []
-        input_length = [self.max_seq_length]*len(indexes_in_batch)
+        input_length = [self.ctc_input_length]*len(indexes_in_batch)
         # input_length = math.ceil(float(input_length - 11 + 1) / float(2))
-        label_length = []
+        label_length = [self.max_label_length]*len(indexes_in_batch)
 
         for idx in indexes_in_batch:
-            x_tmp = np.load(f"{self.input_dir}{idx}.npy")
+            x_tmp = np.load(f"{self.input_dir}{idx}.npz")
+            x_tmp = x_tmp['arr_0']
             x_tmp_padded = self._pad_sequence(x_tmp, self.max_seq_length)
             X.append(x_tmp_padded)
 
             with open(f"{self.input_dir}{idx}.txt", 'r') as f:
                 y_str = f.readlines()[0]
-            y_str = [self.char_to_idx_map[c] for c in y_str]
-            y.append(y_str)
-            label_length.append(len(y_str))
+            y_tmp = [self.char_to_idx_map[c] for c in y_str]
+            y_tmp_padded = self._pad_transcript(y_tmp, self.max_label_length)
+            y.append(y_tmp_padded)
 
         # Cast to np.array
         X = np.array(X)
@@ -143,7 +147,7 @@ class DataGenerator(Sequence):
         }
 
         outputs = {
-            'ctc': np.zeros([self.batch_size])
+            'ctc': np.zeros([len(indexes_in_batch)])
         }
 
         return inputs, outputs
@@ -153,11 +157,25 @@ class DataGenerator(Sequence):
         """Zero pad input features sequence"""
         out = None
         if x.shape[0] > max_seq_length:
-                raise ValueError(f"Found input sequence {x.shape[0]} more than {max_seq_length}")
+            raise ValueError(f"Found input sequence {x.shape[0]} more than {max_seq_length}")
         elif x.shape[0] < max_seq_length:
-            out = np.zeros([0, max_seq_length, x.shape[1]])
+            out = np.zeros([max_seq_length, x.shape[1]], dtype=complex)
             out[:x.shape[0]] = x
         else:
             out = x
         
+        return out
+
+    @staticmethod
+    def _pad_transcript(y, max_label_length):
+        """Zero pad input label transcription"""
+        out = None
+        if len(y) > max_label_length:
+            raise ValueError(f"Found label transcript {len(y)} more than {max_label_length}")
+        elif len(y) < max_label_length:
+            out = np.zeros([max_label_length], dtype=int)
+            out[:len(y)] = y
+        else:
+            out = y
+
         return out
