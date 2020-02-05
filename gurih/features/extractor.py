@@ -185,8 +185,8 @@ class _BaseFeatureExtractor(TransformerMixin):
             Power pectrum.
         """
 
-        complex_spectrum = np.absolute(np.fft.rfft(frames, NFFT))
-        power_spectrum = 1.0/NFFT * np.square(complex_spectrum)
+        complex_spectrum = np.fft.rfft(frames, NFFT)
+        power_spectrum = 1.0/NFFT * np.square(np.absolute(complex_spectrum))
         return power_spectrum
 
     def _compute_delta(self, features, N=2):
