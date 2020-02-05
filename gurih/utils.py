@@ -1,5 +1,39 @@
 import os
 
+def batch(iterable, b=1):
+    """
+    Create batch from iterable.
+
+    Parameters
+    ----------
+    iterable : iterable
+        iterable to create batches from
+    b : int, optional, [default = 1]
+        batch size
+    
+    Returns
+    -------
+    batches : iterable
+        generator of batch
+
+    Example
+    -------
+    >>> l = list(range(10))
+    >>> batches = batch(l, 3)
+    >>> batches
+    <generator object batch at 0x005A0370>
+    >>> for b in batches:
+    ...    print(b)
+    ...
+    [0, 1, 2]
+    [3, 4, 5]
+    [6, 7, 8]
+    [9]
+    """
+    l = len(iterable)
+    for ndx in range(0, l, b):
+        yield iterable[ndx:min(ndx + b, l)]
+
 def generate_filenames(dir):
     """
     Generate filenames of audio files in the
