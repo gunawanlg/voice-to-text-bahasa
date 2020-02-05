@@ -18,13 +18,13 @@ class Aligner(TransformerMixin):
     Parameters
     ----------
     language : str
-        Three character string indicated by ISO 639-3 language code.
-    
+        three character string indicated by ISO 639-3 language code.
+    aligner_type : str
+        by default use 'aeneas'
     max_audio_length : int, default=500
-        Maximum audio duration required for the input
-
+        maximum audio duration required for the input
     print_log : bool, default=True
-        Print out log or not
+        print out log or not
     
     Example
     -------
@@ -72,6 +72,11 @@ class Aligner(TransformerMixin):
 
         return json_availability_dict
 
+    def check_missing(self, X):
+        json_availability_dict = self._validate_availability(X)
+        missing_jsons = [k for k,v in json_availability_dict.items() if v]
+        return missing_jsons
+
     def fit(self, X, y=None):
         return self
 
@@ -103,6 +108,7 @@ class Aligner(TransformerMixin):
             json_file_path_absolute = x[0][:-4] + ".json"
 
             if json_availability_dict[json_file_path_absolute]:
+                print(json_file_path_absolute)
                 try:
                     task = Task(config_string=config_string)
                     task.audio_file_path_absolute = x[0]
