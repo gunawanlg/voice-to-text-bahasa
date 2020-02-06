@@ -7,7 +7,7 @@ import numpy as np
 
 from gurih.data.normalizer import AudioNormalizer
 from gurih.features.extractor import MFCCFeatureExtractor
-from gurih.utils import batch, validate_availability
+from gurih.utils import batch, validate_nonavailability
 
 def extraction_pipeline_batch(id, batch, pipeline):
     """
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     mp3s = glob.glob("*.mp3")
 
     # Checking the availability of the npz for the corresponding mp3s
-    file_availability_dict = validate_availability(mp3s, "npz")
+    file_availability_dict = validate_nonavailability(mp3s, "npz")
 
     norm_feature_extractor = Pipeline(
         steps = [

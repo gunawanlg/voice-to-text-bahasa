@@ -56,7 +56,7 @@ def batch(l, b=1, n=None):
         for ndx in range(0, m, b):
             yield l[ndx:min(ndx + b, m)]
 
-def validate_availability(X, file_type):
+def validate_nonavailability(X, file_type, check_dir="."):
     """
     Validate if files with the input file_type exist or not
 
@@ -68,25 +68,37 @@ def validate_availability(X, file_type):
     file_type : str
         type of the files to be compared with X
 
+    check_dir : str
+        path to check the existence of `file_type` 
+
     Return
     ------
     availability_dict : dict
         dictionary of file availability
+
+    Example
+    -------
+    Let's say we have a file named "a.npz" in the check_dir
+    >>> X = ["a.mp3", "b.mp3"]
+    >>> file_type = "npz"
+    >>> file_nonavailability_dict = validate_nonavailability(X, "npz")
+    >>> file_nonavailability_dict
+    {"a.npz": False, "b.npz": True}
     """
 
     # Get a list of existing file files
-    finished_files = glob.glob(f"*.{file_type}")
+    finished_files = glob.glob(f"{check_dir}/*.{file_type}")
 
     # Get a list of all possible generated files
     possible_file_path_absolutes =  [f"{x.split('.')[0]}.{file_type}" for x in X]
 
     # Create a dictionary for faster querying
-    file_availability_dict = {possible_file_path_absolute: True for possible_file_path_absolute in possible_file_path_absolutes}
+    file_nonavailability_dict = {possible_file_path_absolute: True for possible_file_path_absolute in possible_file_path_absolutes}
 
     for finished_file in finished_files:
-        file_availability_dict[finished_file] = False
+        file_nonavailability_dict[finished_file] = False
 
-    return file_availability_dict
+    return file_nonavailability_dict
 
 def generate_filenames(dir):
     """
