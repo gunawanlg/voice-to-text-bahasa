@@ -1,12 +1,9 @@
 import os
 import json
-import warnings
 from datetime import datetime
 
 from sklearn.base import TransformerMixin
 import librosa
-
-warnings.filterwarnings("ignore")
 
 class AudioNormalizer(TransformerMixin):
     """
@@ -103,11 +100,11 @@ class AudioNormalizer(TransformerMixin):
                 id_dict[i] = filename
                 signal_dict[i] = signal
             else:
-                signal_dict[i] = signal 
+                filename = filename.replace(".mp3", "")
+                signal_dict[filename] = signal 
 
         # Write the .json file to store the corresponding ids and filenames
         if self.encode:
             with open(f"{self.output_dir}/{date}_audio_encoding.json", "w") as f:
                 json.dump(id_dict, f)
-
         return signal_dict
