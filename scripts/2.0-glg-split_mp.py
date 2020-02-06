@@ -73,9 +73,10 @@ if __name__ == '__main__':
     print(f"Processing {len(aligned_jsons)} json files.")
     
     cpus = os.cpu_count()
-    batch_size = int(len(aligned_jsons) / (cpus - 1))
-    batches = batch(aligned_jsons, batch_size)
+    batches = batch(aligned_jsons, n=(cpus - 1))
 
+    assert len(range(cpus-1)) == len(batches)
+    
     # Spawn jobs
     jobs = []
     for i, b in zip(range(cpus - 1), batches): # don't use all cores
