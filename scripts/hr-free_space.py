@@ -1,6 +1,8 @@
 import glob
 import os
 
+from gurih.utils import validate_nonavailability
+
 if __name__ == "__main__":
     mp3s = glob.glob("*.mp3")
 
