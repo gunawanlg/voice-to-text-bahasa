@@ -56,7 +56,7 @@ def batch(l, b=1, n=None):
         for ndx in range(0, m, b):
             yield l[ndx:min(ndx + b, m)]
 
-def validate_nonavailability(X, file_type, check_dir="."):
+def validate_nonavailability(X, file_type):
     """
     Validate if files with the input file_type exist or not
 
@@ -68,8 +68,6 @@ def validate_nonavailability(X, file_type, check_dir="."):
     file_type : str
         type of the files to be compared with X
 
-    check_dir : str
-        path to check the existence of `file_type` 
 
     Return
     ------
@@ -87,7 +85,7 @@ def validate_nonavailability(X, file_type, check_dir="."):
     """
 
     # Get a list of existing file files
-    finished_files = glob.glob(f"{check_dir}/*.{file_type}")
+    finished_files = glob.glob(f"*.{file_type}")
 
     # Get a list of all possible generated files
     possible_file_path_absolutes =  [f"{x.split('.')[0]}.{file_type}" for x in X]

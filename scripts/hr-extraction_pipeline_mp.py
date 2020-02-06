@@ -35,7 +35,7 @@ if __name__ == '__main__':
     mp3s = glob.glob("*.mp3")
 
     # Checking the availability of the npz for the corresponding mp3s
-    file_availability_dict = validate_nonavailability(mp3s, "npz")
+    file_nonavailability_dict = validate_nonavailability(mp3s, "npz")
 
     norm_feature_extractor = Pipeline(
         steps = [
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     )
 
     # Find only the mp3s that currently do not have the corresponding npz
-    non_extracted_mp3s = [f"{k.replace('npz', 'mp3')}" for k, v in file_availability_dict.items() if v]
+    non_extracted_mp3s = [f"{k.replace('npz', 'mp3')}" for k, v in file_nonavailability_dict.items() if v]
     print(f"Currently, there are {len(non_extracted_mp3s)} mp3s left to be extracted")
     
     cpus = os.cpu_count()

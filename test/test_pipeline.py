@@ -1,10 +1,11 @@
 import unittest
-from gurih.features.extractor import MFCCFeatureExtractor
-from gurih.data.normalizer import AudioNormalizer
-from sklearn.pipeline import Pipeline
+from datetime import datetime
 
 from tinytag import TinyTag
-from datetime import datetime
+from sklearn.pipeline import Pipeline
+
+from gurih.features.extractor import MFCCFeatureExtractor
+from gurih.data.normalizer import AudioNormalizer
 
 class PipelineTest(unittest.TestCase):
 
