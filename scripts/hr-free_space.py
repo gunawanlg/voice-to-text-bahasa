@@ -14,7 +14,8 @@ if __name__ == "__main__":
 
     if confirmation == "Y":
         for available_file in available_files:
-            os.remove(available_file)
+            if os.path.exists(available_file):
+                os.remove(available_file)
         
         print(f"Removed {len(available_files)} files")
     else:
