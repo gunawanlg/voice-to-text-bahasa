@@ -210,7 +210,7 @@ class _BaseModel:
     @dir_path.setter
     def dir_path(self, new_val):
         if (new_val == self._dir_path):
-            print("Path already set to " + self._dir_path)
+            print("Model directory already set to " + self._dir_path)
         else:
             self._dir_path = new_val
             print("Model directory is set to " + self._dir_path)
@@ -222,10 +222,10 @@ class _BaseModel:
     @doc_path.setter
     def doc_path(self, new_val):
         if (new_val == self._doc_path):
-            print("Path already set to " + self._doc_path)
+            print("Documentation directory already set to " + self._doc_path)
         else:
             self._doc_path = new_val
-            print("Model directory is set to " + self._doc_path)
+            print("Documentation directory is set to " + self._doc_path)
 
 class BaselineASRModel(_BaseModel):
     """
@@ -233,15 +233,16 @@ class BaselineASRModel(_BaseModel):
 
     Baseline Automatic Speech Recognition (ASR) model using CTC Loss.
     Architecture:
-        Conv1D --> Bidrectional(LSTM) --> Dense(vocab_len)
+        Conv1D --> Bidrectional(LSTM) --> Dense(vocab_len+1) 
+        +1 in Dense layer is for blank token needed in CTC.
 
     Example
     -------
         See 3.0-glg-baseline-model.ipynb for detailed example
     """
     def __init__(self, input_shape, vocab_len, filters=200, kernel_size=11, strides=2, padding='valid', 
-                 n_lstm_units=200):
-        super().__init__()
+                 n_lstm_units=200, **kwargs):
+        super().__init__(**kwargs)
         self.vocab_len     = vocab_len
         self.input_shape   = input_shape
         self._filters      = filters
@@ -332,8 +333,6 @@ class BaselineASRModel(_BaseModel):
         
         This fit method prefer explicit input on training and validation data, rather than using validation_split. It is 
         best to first create your data, for example, by using train_test_split method from scikit-learn.
-
-        By default, model will use EarlyStopping callbacks to stop from overfitting training dataset.
         
         Parameters
         ----------
@@ -351,9 +350,7 @@ class BaselineASRModel(_BaseModel):
         validation_generator : keras.utils.Sequence, optional
             validation data generator, yield same inputs, outputs shape as train_generator
         epochs : int
-            number of iteration throughout the whole dataset
-        **kwargs
-            keras fit_generator keyword arguments
+            number of iteration throughout the whole datasetd
         """
         self.history = self.model.fit_generator(generator=train_generator, 
                                  validation_data=validation_generator,
@@ -362,8 +359,8 @@ class BaselineASRModel(_BaseModel):
                                  **kwargs)
         self._save_history_figure()
 
-    # def evaluate(self, X_test, y_test):
-    #     return self.model.evaluate(X_test, y_test)
+    def evaluate(self, X_test, y_test):
+        raise NotImplementedError("evaluate() method not implemented for this model.")
 
     def predict(self, X_test):
         """
@@ -385,4 +382,4 @@ class BaselineASRModel(_BaseModel):
 
         ctc_matrix = pred_func(X_test)
 
-        return ctc_matrix[0]
+        return ctc_matrix[0] # get only the matrix
