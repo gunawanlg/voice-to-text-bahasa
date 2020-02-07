@@ -11,6 +11,8 @@ from aeneas.dtw import DTWAlgorithm
 from aeneas.runtimeconfiguration import RuntimeConfiguration
 from sklearn.base import TransformerMixin
 
+from gurih.utils import validate_nonavailability
+
 class Aligner(TransformerMixin):
     """
     Aligner(TransformerMixin)
@@ -115,7 +117,7 @@ class Aligner(TransformerMixin):
 
         config_string = u"task_language="+self.language+"|is_text_type="+self.text_type+"|os_task_file_format="+self.output_type
 
-        json_availability_dict = self._validate_availability(X)
+        json_availability_dict = validate_nonavailability(X, "json")
 
         # Create Task
         for x in tqdm(X):

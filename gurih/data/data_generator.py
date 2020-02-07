@@ -1,38 +1,92 @@
+import math
 from random import shuffle as shuf
 import string
+import glob
 
+import librosa
 import numpy as np
 import pandas as pd
-from tensorflow.keras import keras
+from tensorflow.keras.utils import Sequence
 
-class AudioDataGenerator(keras.utils.Sequence):
+from gurih.features.extractor import MFCCFeatureExtractor
+from gurih.data.normalizer import AudioNormalizer
+
+
+class DataGenerator(Sequence):
     """
-    Generates data for Keras.
+    Generates data for ASRModel.
     
     Parameters
     ----------
-        df : pd.DataFrame
-            columns = ['sentence_string', ']
-    
-    
-    Vocab used = alphabet(26) + space_token(' ') + end_token('>')
+    input_dir : str
+        directory of .npz and .txt transcription
+    max_seq_length : int
+        maximum sequence length of ASR model
+    char_to_idx_map : dict
+        dictionary mapping character to index
+    batch_size : int
+        subset size of the training sample
+    num_batch : int
+        number of batch
+    shuffle : bool
+        allow shuffling of indexes or not
+
+    Example
+    -------
+    >>> import string
+    >>> char_to_idx_map = {chr(i) : i - 96 for i in range(97, 123)}
+    >>> char_to_idx_map[" "] = 0
+    >>> char_to_idx_map["."] = 27
+    >>> char_to_idx_map[","] = 28
+    >>> char_to_idx_map["%"] = 29
+    >>> generator = DataGenerator("input_dir/", 300, char_to_idx_map)
+    >>> generator[0][0]
+    {'the_input': array([[[5, 5, 5, ..., 5, 5, 5],
+         [5, 5, 5, ..., 5, 5, 5],
+         [5, 5, 5, ..., 5, 5, 5],
+         ...,
+         [5, 5, 5, ..., 5, 5, 5],
+         [5, 5, 5, ..., 5, 5, 5],
+         [5, 5, 5, ..., 5, 5, 5]]]),
+    'the_labels': array([[11, 23,  4,  0,  1, 13, 27, 21, 13, 13, 12,  4,  3, 14, 21,  0,
+            17,  8,  7, 12,  5, 24, 14,  7,  5, 18, 15,  6, 14, 16, 16,  2,
+            14, 25, 18,  1, 11, 21, 14, 25, 11, 10, 13, 16,  9,  7, 25, 27,
+            16, 15,  0, 14,  2, 25,  4,  7, 26, 27, 15, 23, 12,  6, 22,  6,
+            25, 12, 24,  4,  5, 12,  1,  4, 18, 13, 21, 14,  6, 13, 22, 15,
+            14, 19, 11, 23, 21, 23,  6,  6, 23,  0,  1,  5, 23, 25, 25, 24,
+            6, 19,  4,  6]]),
+    'input_length': array([145]),
+    'label_length': array([28])}
     """
-    def __init__(self, df, max_seq_output_length, batch_size=32, n_classes=28, num_batch=0, shuffle=True):
-        self.df = df
-        self.max_seq_output_length = max_seq_output_length
+    def __init__(self, input_dir, max_seq_length, max_label_length, ctc_input_length,
+                 char_to_idx_map, batch_size=32, num_batch=0, shuffle=True):
+        self.input_dir = input_dir
+        self.max_seq_length = max_seq_length
+        self.max_label_length = max_label_length
+        self.ctc_input_length = ctc_input_length
+        self.char_to_idx_map = char_to_idx_map
         self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.n_classes = n_classes
         self.num_batch = num_batch
         self.shuffle = shuffle
 
-        self.indexes = np.arange(len(self.df))
+        features_filename = sorted(glob.glob(input_dir+"*.npz"))
+        transcription_filename = sorted(glob.glob(input_dir+"*.txt"))
+
+        n_features = len(features_filename)
+        n_transcription = len(transcription_filename)
+        msg = f"Incosistent input length {n_features} != {n_transcription}"
+        assert len(features_filename) == len(transcription_filename), msg
+        self._m = len(features_filename)
+
+        # Initialize indexes
+        self.indexes = np.arange(self._m)
 
     def __len__(self):
         """
         Denotes the number of batches per epoch
         """
-        cal_num_batch = int(np.floor(self.df.shape[0] / self.batch_size))
+
+        cal_num_batch = int(np.floor(self._m / self.batch_size))
         if (self.num_batch == 0) | (self.num_batch > cal_num_batch):
             self.num_batch = cal_num_batch
 
@@ -60,62 +114,68 @@ class AudioDataGenerator(keras.utils.Sequence):
         if self.shuffle:
             shuf(indexes_in_batch)
 
-        X, y, input_length, label_length = self.__data_generation()
+        # Load audio and transcript
+        X = []
+        y = []
+        input_length = [self.ctc_input_length]*len(indexes_in_batch)
+        # input_length = math.ceil(float(input_length - 11 + 1) / float(2))
+        label_length = [self.max_label_length]*len(indexes_in_batch)
 
-        inputs = {'the_input': X,
-                  'the_labels': y,
-                  'input_length': np.array([input_length]),
-                  'label_length': np.array([label_length])}
+        for idx in indexes_in_batch:
+            x_tmp = np.load(f"{self.input_dir}{idx}.npz")
+            x_tmp = x_tmp['arr_0']
+            x_tmp_padded = self._pad_sequence(x_tmp, self.max_seq_length)
+            X.append(x_tmp_padded)
 
-        outputs = {'ctc': np.zeros([self.batch_size])} # dummy data for dummy loss function
-        # print(inputs)
-        # print(outputs)
-        # print(X.shape)
-        # print(y.shape)
+            with open(f"{self.input_dir}{idx}.txt", 'r') as f:
+                y_str = f.readlines()[0]
+            y_tmp = [self.char_to_idx_map[c] for c in y_str]
+            y_tmp_padded = self._pad_transcript(y_tmp, self.max_label_length)
+            y.append(y_tmp_padded)
+
+        # Cast to np.array
+        X = np.array(X)
+        y = np.array(y)
+        input_length = np.array(input_length)
+        label_length = np.array(label_length)
+        
+        inputs = {
+            'the_input': X,
+            'the_labels': y,
+            'input_length': input_length,
+            'label_length': label_length
+        }
+
+        outputs = {
+            'ctc': np.zeros([len(indexes_in_batch)])
+        }
+
         return inputs, outputs
-
-    def on_epoch_end(self):
-        pass
+    
+    @staticmethod
+    def _pad_sequence(x, max_seq_length):
+        """Zero pad input features sequence"""
+        out = None
+        if x.shape[0] > max_seq_length:
+            raise ValueError(f"Found input sequence {x.shape[0]} more than {max_seq_length}")
+        elif x.shape[0] < max_seq_length:
+            out = np.zeros([max_seq_length, x.shape[1]], dtype=complex)
+            out[:x.shape[0]] = x
+        else:
+            out = x
         
-    def __data_generation(self):
-        """
-        Generates data containing batch_size samples
-        
-        TODO: This method currently implement dummy data. Please change to approriate methods.
-        """
-        X = self.__input_from_audio()
-        y = self.__labels_from_string()
+        return out
 
-        input_length = self.max_seq_output_length # equals to output shape of Model, e.g. Model(X), 
-                                                  # this is the input length to the CTC
-        label_length = self.n_classes
+    @staticmethod
+    def _pad_transcript(y, max_label_length):
+        """Zero pad input label transcription"""
+        out = None
+        if len(y) > max_label_length:
+            raise ValueError(f"Found label transcript {len(y)} more than {max_label_length}")
+        elif len(y) < max_label_length:
+            out = np.zeros([max_label_length], dtype=int)
+            out[:len(y)] = y
+        else:
+            out = y
 
-        return X, y, input_length, label_length
-
-    def __input_from_audio(self):
-        """
-        TODO: change implementation by using self.df instead of dummy data
-        """
-        X = np.array([[5 for x in range(39)] for y in range(300)]) # shape = (300, 39)
-        X = np.expand_dims(X, axis=0) # shape = (1, 300, 39)
-
-        return X
-
-    def __labels_from_string(self):
-        """
-        TODO: change implementation by using self.df instead of dummy data
-        """
-        vocab = set(string.ascii_lowercase)
-        vocab |= {' ', '>'}
-
-        char_to_index = {}
-        for i, v in enumerate(vocab):
-            char_to_index[v] = i
-
-        # Dummy data
-        vocab_index = list(range(len(vocab)))
-        y = np.random.choice(vocab_index, 100)
-        y = np.expand_dims(y, axis=0)
-
-        return y
-        
+        return out

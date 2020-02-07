@@ -1,0 +1,22 @@
+language: python
+
+python:
+  - "3.6"
+  - "3.7"
+
+os:
+  - linux
+
+before_install:
+  - sudo add-apt-repository ppa:jonathonf/ffmpeg-4 -y
+  - sudo apt-get update
+  - sudo apt-get -y install ffmpeg
+  - "export PYTHONPATH=$PYTHONPATH:$(pwd)"
+
+install:
+  - pip install .
+
+script:
+  - ffmpeg -version
+  - cd test && python -m unittest discover .
+

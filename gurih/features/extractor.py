@@ -40,7 +40,7 @@ class _BaseFeatureExtractor(TransformerMixin):
 
         return emphasized_signal
 
-    def _frame_signal(self, signal, sample_rate, frame_size=0.025, frame_stride=0.01):
+    def _frame_signal(self, signal, sample_rate, frame_size=0.025, frame_stride=0.01, winfunc=lambda x: np.ones((x,))):
         """
         Split signal into short-time frames
 
@@ -71,16 +71,17 @@ class _BaseFeatureExtractor(TransformerMixin):
         frame_length = int(round(frame_length))
         frame_step = int(round(frame_step))
 
-        num_frames = int(np.ceil(float(np.abs(signal_length - frame_length)) / frame_step))
+        num_frames = 1 + int(np.ceil(float(np.abs(signal_length - frame_length)) / frame_step))
 
-        pad_signal_length = num_frames * frame_step + frame_length
+        pad_signal_length = int((num_frames - 1) * frame_step + frame_length)
+
         z = np.zeros((pad_signal_length - signal_length))
-        pad_signal = np.append(signal, z)
+        pad_signal = np.concatenate((signal, z))
 
         indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) + np.tile(np.arange(0, num_frames * frame_step, frame_step), (frame_length, 1)).T
 
         frames = pad_signal[indices.astype(np.int32, copy=False)]
-        frames *= np.hamming(frame_length)
+        frames *= np.tile(winfunc(frame_length), (num_frames, 1))
 
         return frames
 
@@ -151,7 +152,6 @@ class _BaseFeatureExtractor(TransformerMixin):
         high_freq = high_freq or sample_rate / 2
         high_mel = self._convert_hz_to_mel(high_freq)
 
-        
         mel_points = np.linspace(low_mel, high_mel, filter_num + 2)
         
         hz_points = self._convert_mel_to_hz(mel_points)
@@ -186,7 +186,7 @@ class _BaseFeatureExtractor(TransformerMixin):
         """
 
         complex_spectrum = np.fft.rfft(frames, NFFT)
-        power_spectrum = 1.0/NFFT * np.square(complex_spectrum)
+        power_spectrum = 1.0/NFFT * np.square(np.absolute(complex_spectrum))
         return power_spectrum
 
     def _compute_delta(self, features, N=2):
@@ -259,7 +259,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
     frame_stride : float, default=0.01
         Length of the frame stride.
 
-    filter_num : int, default=20
+    filter_num : int, default=26
         Number of Mel filters.
 
     NFFT : int, default=512
@@ -277,14 +277,23 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
     cep_lifter : int, default=22
         Number of lifter.
 
+    cep_num: int, default=13
+        Number of cepstral coefficients.
+
     dct_type : int, default=2
         Type of numpy discrete consine transform.
     
     dct_norm : str, default="ortho"
         Normalization mode of the dct.
 
+    append_energy:
+        Replace the zeroth cepstral coeff with the energy.
+
     append_delta : bool, default=False
         Append the delta features to features.
+
+    low_memory : bool, default=False
+        Save the features inside a dict or not
     
     write_output : bool, default=False
         Store the Mel features to pickle.
@@ -311,7 +320,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         ...]
     """
 
-    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_delta=False, write_output=False, output_dir="../data/processed/extracted"):
+    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, cep_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_energy=True, append_delta=False, low_memory=False, write_output=True, output_dir="."):
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
@@ -321,9 +330,14 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         self.high_freq = self.sample_rate / 2 or self.high_freq
         self.pre_emphasis_coeff = pre_emphasis_coeff
         self.cep_lifter = cep_lifter
+        self.cep_num = cep_num
         self.dct_type = dct_type
         self.dct_norm = dct_norm
+        
         self.append_delta = append_delta
+        self.append_energy = True
+
+        self.low_memory = low_memory
         self.write_output = write_output
         self.output_dir = output_dir
     
@@ -350,19 +364,26 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
         Parameters
         ----------
-        X : 1-d np.array
+        X : dict
             The data to transform
 
         Returns
         -------
-        X_out : 2-d array
-            Array of Mel features
+        mfcc_features_dict : dict
+            Dict of array of Mel features
         """
 
-        X_out = []
+        if not self.low_memory:
+            mfcc_features_dict = {}
 
-        for filename in X:
-            signal, sample_rate = librosa.load(filename, sr=self.sample_rate)
+        if self.write_output:
+            processed_data_directory  = self.output_dir
+            date = datetime.today().strftime("%Y%m%d")
+            if not os.path.exists(processed_data_directory):
+                os.mkdir(processed_data_directory)
+
+        for filename in X.keys():
+            signal = X[filename]
 
             signal = super()._apply_pre_emphasis(signal, self.pre_emphasis_coeff)
 
@@ -379,30 +400,29 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
             features = np.where(features==0, np.finfo(float).eps, features)
 
             features = np.log(features)
-            features = dct(features, type=self.dct_type, axis=1, norm=self.dct_norm)
+            features = dct(features, type=self.dct_type, axis=1, norm=self.dct_norm)[:, :self.cep_num]
 
             features = super()._apply_lifter(features, self.cep_lifter)
+
+            if self.append_energy:
+                features[:, 0] = np.log(energy)
 
             if self.append_delta:
                 delta_features = super()._compute_delta(features)
                 delta_features_delta = super()._compute_delta(delta_features)
                 features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
 
-            X_out.append(features)
-            break
+            if not self.low_memory:
+                mfcc_features_dict[filename] = features
 
-        if self.write_output:
-            processed_data_directory  = self.output_dir
-            date = datetime.today().strftime("%Y%m%d")
-            if not os.path.exists(processed_data_directory):
-                os.mkdir(processed_data_directory)
+            if self.write_output:
+                npz_filename = f"{filename}.npz"
+                np.savez(f"{processed_data_directory}/{npz_filename}", features)
 
-            pickled_filename = f"{date}_mfcc_extracted.pkl"
-            with open(f"{processed_data_directory}/{pickled_filename}", "wb") as f:
-                pickle.dump(X_out, f)
-
-        return X_out
+        if not self.low_memory:
+            return mfcc_features_dict
+        else:
+            return 0
 
     def fit_transform(self, X, y=None):
         return self.fit(X).transform(X)
-
