@@ -13,6 +13,8 @@ from aeneas.dtw import DTWAlgorithm
 from aeneas.runtimeconfiguration import RuntimeConfiguration
 from sklearn.base import TransformerMixin
 
+from gurih.utils import validate_nonavailability
+
 class Aligner(TransformerMixin):
     """
     Aligner(TransformerMixin)
@@ -40,36 +42,6 @@ class Aligner(TransformerMixin):
         self.write_output = write_output
         self.res = []
 
-    def _validate_availability(self, X):
-        """
-        Validate if .json file exists or not
-
-        Parameters
-        ----------
-        X: 1-d array
-            list of data to be validated
-
-        Return
-        ------
-        json_availability_dict : dict
-            dictionary of json file availability
-        """
-
-        # Get a list of existing json files
-        finished_jsons = glob.glob("*.json")
-        self.res += finished_jsons
-
-        # Get a list of all possible generated jsons
-        possible_json_file_path_absolutes =  [x[0][:-4] + ".json" for x in X]
-
-        # Create a dictionary for faster querying
-        json_availability_dict = {possible_json_file_path_absolute: True for possible_json_file_path_absolute in possible_json_file_path_absolutes}
-
-        for finished_json in finished_jsons:
-            json_availability_dict[finished_json] = False
-
-        return json_availability_dict
-
     def fit(self, X, y=None):
         return self
 
@@ -94,7 +66,7 @@ class Aligner(TransformerMixin):
 
         config_string = u"task_language="+self.language+"|is_text_type="+self.text_type+"|os_task_file_format="+self.output_type
 
-        json_availability_dict = self._validate_availability(X)
+        json_availability_dict = validate_nonavailability(X, "json")
 
         # Create Task
         for x in X:

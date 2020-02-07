@@ -381,7 +381,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
             date = datetime.today().strftime("%Y%m%d")
             if not os.path.exists(processed_data_directory):
                 os.mkdir(processed_data_directory)
-        
+
         for filename in X.keys():
             signal = X[filename]
 
@@ -426,4 +426,3 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
     def fit_transform(self, X, y=None):
         return self.fit(X).transform(X)
-
