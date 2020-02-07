@@ -55,9 +55,10 @@ if __name__ == '__main__':
         prog='2.0-glg-split_mp',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument('--input_dir', default='input/',
+    def_dir = "../dataset/processed/"
+    parser.add_argument('--input_dir', default=def_dir+'bibleis_trimmed/',
                         help='Input directory of .json files.')
-    parser.add_argument('--output_dir', default='output/',
+    parser.add_argument('--output_dir', default=def_dir+'bibleis_trimmed_splitted/',
                         help='Output directory of .mp3 and .txt files.')
 
     args = parser.parse_args()
@@ -66,6 +67,9 @@ if __name__ == '__main__':
     input_dir = args.input_dir
     output_dir = args.output_dir
     splitter = AeneasSplitter(input_dir=input_dir, output_dir=output_dir)
+    print(f"Input directory: {input_dir}")
+    print(f"Output directory: {output_dir}")
+    print()
 
     # Create batches
     aligned_jsons = glob.glob(input_dir+"*.json")
@@ -74,8 +78,6 @@ if __name__ == '__main__':
     
     cpus = os.cpu_count()
     batches = batch(aligned_jsons, n=(cpus - 1))
-
-    assert len(range(cpus-1)) == len(batches)
     
     # Spawn jobs
     jobs = []
