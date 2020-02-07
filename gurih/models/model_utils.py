@@ -15,8 +15,9 @@ def wer(y_true, y_pred, write_html=False):
         hypothesis, prediction from model
     write_html : bool, optional
         write output html or not. Only valid if given str input.
-    Return
-    ------
+    
+    Returns
+    -------
     wer : float
         Word error rate number of (substitution + insertion + deletion) divided 
         by number of words in references.
@@ -42,13 +43,9 @@ def ctc_decode(ctc_matrix, idx_to_char_map, **kwargs):
         output from ASR model where m denotes number of samples
     idx_to_char_map : dict
         map index output to character, including blank token
-    mode : str, optional
-        default greedy by looking for max probabilty in each timestep
-        other options:
-            - keras
 
-    Return
-    ------
+    Returns
+    -------
     y_preds : list of str
         string prediction from the model
     """
