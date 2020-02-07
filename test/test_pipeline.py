@@ -10,7 +10,7 @@ class PipelineTest(unittest.TestCase):
 
     def setUp(self):
         self.output_dir = "test_data"
-        self.X = ["INDASV_GEN_1.mp3", "INDASV_GEN_2.mp3", "INDASV_SNG_1.mp3"]
+        self.X = ["INDASV_GEN_1.mp3"]
         self.X = [f"{self.output_dir}/{x}" for x in self.X]
         self.audio_normalizer = AudioNormalizer(output_dir=self.output_dir)
 

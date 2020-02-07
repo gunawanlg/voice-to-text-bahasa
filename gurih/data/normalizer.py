@@ -1,9 +1,12 @@
-from sklearn.base import TransformerMixin
-import librosa
 import os
 import json
-
+import warnings
 from datetime import datetime
+
+from sklearn.base import TransformerMixin
+import librosa
+
+warnings.filterwarnings("ignore")
 
 class AudioNormalizer(TransformerMixin):
     """
