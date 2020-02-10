@@ -9,17 +9,30 @@ def wer(y_true, y_pred, write_html=False):
 
     Parameters
     ----------
-    y_true : list of str or str
+    y_true : list of str, str
         references, ground truth label string
-    y_pred : list of str or str
+    y_pred : list of str, str
         hypothesis, prediction from model
     write_html : bool, optional
         write output html or not. Only valid if given str input.
-    Return
-    ------
+    
+    Returns
+    -------
     wer : float
         Word error rate number of (substitution + insertion + deletion) divided 
         by number of words in references.
+
+    Examples
+    --------
+    >>> y_true = ['aku dan dia', 'dia dan kamu', 'kamu dan aku']
+    >>> y_pred = ['aky dan dia', 'diaa dan kamu', 'kamu aku']
+    >>> wer(y_true, y_pred)
+    33.33333333333333
+    
+    >>> y_true = 'aku, kamu, dan dia'
+    >>> y_pred = 'ak, dia, dan'
+    >>> wer(y_true, y_pred)
+    50.0
     """
     if (type(y_true) == list) and (type(y_pred) == list):
         result = 0
@@ -42,13 +55,9 @@ def ctc_decode(ctc_matrix, idx_to_char_map, **kwargs):
         output from ASR model where m denotes number of samples
     idx_to_char_map : dict
         map index output to character, including blank token
-    mode : str, optional
-        default greedy by looking for max probabilty in each timestep
-        other options:
-            - keras
 
-    Return
-    ------
+    Returns
+    -------
     y_preds : list of str
         string prediction from the model
     """
@@ -160,13 +169,12 @@ def __single_wer(r, h, write_html):
                     y = y - 1
                     html = '<span class="g">%s</span> ' % h[y] + html
                 else:
-                    print('\nWe got an error.')
+                    raise ValueError('\nWe got an error.')
                     break
 
             html = html + '</body></html>'
 
             with open('diff.html', 'w', encoding='utf8') as f:
                 f.write(html)
-                f.close()
 
         return result

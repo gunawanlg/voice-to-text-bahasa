@@ -9,7 +9,7 @@ from sklearn.pipeline import Pipeline
 from gurih.data.normalizer import AudioNormalizer
 from gurih.data.data_generator import DataGenerator
 from gurih.features.extractor import MFCCFeatureExtractor
-from gurih.models.model_utils import CharMap
+from gurih.models.utils import CharMap
 
 
 class DataGeneratorTest(unittest.TestCase):
