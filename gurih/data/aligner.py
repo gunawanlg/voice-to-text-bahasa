@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# coding=utf-8
-
+import os
 import json
 import glob
 
@@ -25,22 +23,75 @@ class Aligner(TransformerMixin):
         three character string indicated by ISO 639-3 language code.
     aligner_type : str
         by default use 'aeneas'
+    max_audio_length : int, default=500
+        maximum audio duration required for the input
+    print_log : bool, default=True
+        print out log or not
     
     Example
     -------
-    >>> X = [ (r"path/to/audio.mp3", r"path/to/audio_transcription.txt") ]
-    >>> cligner = Aligner('ind', 'aeneas')
+    >>> X = [ (r"path/to/audio.mp3", r"path/to/audio_transcription.txt) ]
+    >>> aligner = Aligner('ind', 'aeneas')
     >>> alignment_dict = aligner.transform(X)
     >>> print(aligned_dict[0]['fragments'])
     """
-    def __init__(self, language, aligner_type='aeneas', audio_type='mp3', text_type='plain', output_type='json', write_output=False):
+    def __init__(self, language, text_type='plain', output_type='json', write_output=False, max_audio_length=500, print_log=False):
         self.language = language
-        self.aligner_type = aligner_type
-        self.audio_type = audio_type
         self.text_type = text_type
         self.output_type = output_type
         self.write_output = write_output
+        self.max_audio_length = unicode(str(max_audio_length))
+        self.print_log = print_log
         self.res = []
+
+    def _validate_availability(self, X):
+        """
+        Validate if .json file exists or not
+
+        Parameters
+        ----------
+        X: 1-d array
+            list of data to be validated
+
+        Return
+        ------
+        json_availability_dict : dict
+            dictionary of json file availability
+        """
+
+        # Get a list of existing json files
+        finished_jsons = glob.glob("*.json")
+        self.res += finished_jsons
+
+        # Get a list of all possible generated jsons
+        possible_json_file_path_absolutes =  [x[0][:-4] + ".json" for x in X]
+
+        # Create a dictionary for faster querying
+        json_availability_dict = {possible_json_file_path_absolute: True for possible_json_file_path_absolute in possible_json_file_path_absolutes}
+
+        for finished_json in finished_jsons:
+            json_availability_dict[finished_json] = False
+
+        return json_availability_dict
+
+    def check_missing(self, X):
+        """
+        Check the audios that aren't succesfully aligned
+
+        Parameters
+        ----------
+        X: 1-d array
+            list of tuples of 
+            (r"path/to/audio.mp3", r"path/to/audio_transcription.txt)
+
+        Return
+        ------
+        missing_jsons : list
+            list of unaligned filenames
+        """
+        json_availability_dict = self._validate_availability(X)
+        missing_jsons = [k for k,v in json_availability_dict.items() if v]
+        return missing_jsons
 
     def fit(self, X, y=None):
         return self
@@ -69,10 +120,11 @@ class Aligner(TransformerMixin):
         json_availability_dict = validate_nonavailability(X, "json")
 
         # Create Task
-        for x in X:
+        for x in tqdm(X):
             json_file_path_absolute = x[0][:-4] + ".json"
 
             if json_availability_dict[json_file_path_absolute]:
+                print(json_file_path_absolute)
                 try:
                     task = Task(config_string=config_string)
                     task.audio_file_path_absolute = x[0]
@@ -81,16 +133,16 @@ class Aligner(TransformerMixin):
                     # print(task.configuration)
                 
                     # Process Task
-                    logger = None
-                    # logger = Logger(tee=True)
+                    if self.print_log:
+                        logger = Logger(tee=True)
+                    else:
+                        logger = None
+
                     rconf = None
                     rconf = RuntimeConfiguration()
-                    # rconf[RuntimeConfiguration.DTW_MARGIN] = TimeValue(u"20.000")
-                    # rconf[RuntimeConfiguration.MFCC_WINDOW_LENGTH] = TimeValue(u"0.25")
-                    # rconf[RuntimeConfiguration.MFCC_WINDOW_SHIFT] = TimeValue(u"0.010")
                     rconf.set_granularity(3)
                     rconf[RuntimeConfiguration.MFCC_MASK_NONSPEECH] = False
-                    rconf[RuntimeConfiguration.TASK_MAX_AUDIO_LENGTH] = TimeValue(u"450") # use 240 if using python-32
+                    rconf[RuntimeConfiguration.TASK_MAX_AUDIO_LENGTH] = TimeValue(self.max_audio_length)
                     rconf[RuntimeConfiguration.DTW_ALGORITHM] = DTWAlgorithm.STRIPE
                     rconf[RuntimeConfiguration.VAD_MIN_NONSPEECH_LENGTH] = TimeValue(u"0.050")
                     rconf.set_tts(3)
