@@ -4,8 +4,13 @@
 import json
 import glob
 
+from tqdm.auto import tqdm
 from aeneas.executetask import ExecuteTask
 from aeneas.task import Task
+from aeneas.logger import Logger
+from aeneas.exacttiming import TimeValue
+from aeneas.dtw import DTWAlgorithm
+from aeneas.runtimeconfiguration import RuntimeConfiguration
 from sklearn.base import TransformerMixin
 
 from gurih.utils import validate_nonavailability
@@ -23,7 +28,7 @@ class Aligner(TransformerMixin):
     
     Example
     -------
-    >>> X = [ (r"path/to/audio.mp3", r"path/to/audio_transcription.txt) ]
+    >>> X = [ (r"path/to/audio.mp3", r"path/to/audio_transcription.txt") ]
     >>> cligner = Aligner('ind', 'aeneas')
     >>> alignment_dict = aligner.transform(X)
     >>> print(aligned_dict[0]['fragments'])
@@ -72,9 +77,24 @@ class Aligner(TransformerMixin):
                     task = Task(config_string=config_string)
                     task.audio_file_path_absolute = x[0]
                     task.text_file_path_absolute = x[1]
+
+                    # print(task.configuration)
                 
                     # Process Task
-                    ExecuteTask(task).execute()
+                    logger = None
+                    # logger = Logger(tee=True)
+                    rconf = None
+                    rconf = RuntimeConfiguration()
+                    # rconf[RuntimeConfiguration.DTW_MARGIN] = TimeValue(u"20.000")
+                    # rconf[RuntimeConfiguration.MFCC_WINDOW_LENGTH] = TimeValue(u"0.25")
+                    # rconf[RuntimeConfiguration.MFCC_WINDOW_SHIFT] = TimeValue(u"0.010")
+                    rconf.set_granularity(3)
+                    rconf[RuntimeConfiguration.MFCC_MASK_NONSPEECH] = False
+                    rconf[RuntimeConfiguration.TASK_MAX_AUDIO_LENGTH] = TimeValue(u"450") # use 240 if using python-32
+                    rconf[RuntimeConfiguration.DTW_ALGORITHM] = DTWAlgorithm.STRIPE
+                    rconf[RuntimeConfiguration.VAD_MIN_NONSPEECH_LENGTH] = TimeValue(u"0.050")
+                    rconf.set_tts(3)
+                    ExecuteTask(task, rconf=rconf, logger=logger).execute()
 
                     self.res.append(json_file_path_absolute)
 
