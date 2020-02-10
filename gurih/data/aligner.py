@@ -129,6 +129,8 @@ class Aligner(TransformerMixin):
                     task = Task(config_string=config_string)
                     task.audio_file_path_absolute = x[0]
                     task.text_file_path_absolute = x[1]
+
+                    # print(task.configuration)
                 
                     # Process Task
                     if self.print_log:

@@ -8,7 +8,7 @@ from gurih.data.splitter import AeneasSplitter
 
 class AeneasSplitterTest(unittest.TestCase):
     """
-    Test case for class in splitter.py.
+    Test suite for class in splitter.py.
 
     Current config to be run from test/ directory
 
