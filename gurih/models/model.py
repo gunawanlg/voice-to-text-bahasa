@@ -9,18 +9,15 @@ import os
 from math import ceil
 
 import tensorflow.keras.backend as K
-from tensorflow.keras.models import Model
-# from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
-from tensorflow.keras.backend import ctc_batch_cost
 from tensorflow.keras import Input, Sequential
+from tensorflow.keras.models import Model, model_from_json
 from tensorflow.keras.layers import Lambda, Dense, Dropout, LSTM, Activation 
 from tensorflow.keras.layers import Masking, Conv1D, Bidirectional, TimeDistributed
 # from tensorflow.keras.metrics import Precision, Recall
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
 from tensorflow.keras.models import model_from_json
-from matplotlib import pyplot as plt
 
-# from .my_keras_layers import BaselineASR
+from matplotlib import pyplot as plt
 
 
 class _BaseModel:
@@ -30,14 +27,15 @@ class _BaseModel:
         - load() model.json and weights.h5
         - save and plot history during training
     
-    It also defines default dir_path and doc_path if this class was to be used in directory /notebooks/modelling/
+    It also defines default dir_path and doc_path if this class was to be used in directory 
+    /notebooks/modelling/
 
     Available convenience function for subclassing:
         _create_callbacks : create basic ModelCheckpoint, EarlyStoppping, and CSVLogger callback
             the callbacks created will be saved in object.
         _fit : keras model fit method
-            defines basic fit method, with ModelCheckpoint and EarlyStopping callbacks if validation data is provided 
-            and _create_callbacks is called.
+            defines basic fit method, with ModelCheckpoint and EarlyStopping callbacks if 
+            validation data is provided & _create_callbacks is called.
 
     Parameters
     ----------
@@ -55,7 +53,8 @@ class _BaseModel:
         fig : matplotlib.figure.Figure
             plot of loss and other metrics during training
         callbacks : list of keras.callbacks.callbacks.Callback
-            callbacks defined in _callbacks(), if not implemented, will not store either checkpoint or training metrics
+            callbacks defined in _callbacks(), if not implemented, will not store either checkpoint 
+            or training metrics
     """
     def __init__(self, dir_path="../../models/", doc_path="../../docs/"):
         self._dir_path = dir_path
@@ -110,10 +109,14 @@ class _BaseModel:
     def plot_history(self):
         """Plot train/val loss figure created from _save_history()"""
         if self.fig is None:
-            raise AttributeError("Model is not fitted. No history figure found. Call fit() method first")
+            raise AttributeError(
+                "Model is not fitted. No history figure found. Call fit() method first."
+            )
+
         return self.fig
 
-    def _fit(self, X_train, y_train, X_val=None, y_val=None, epochs=100, batch_size=32, min_delta=1e-4, patience=2):
+    def _fit(self, X_train, y_train, X_val=None, y_val=None, epochs=100, batch_size=32,
+             min_delta=1e-4, patience=2):
         """
         Base fit model for easier implementation of child instance fit() method.
 
@@ -216,7 +219,7 @@ class _BaseModel:
     @dir_path.setter
     def dir_path(self, new_val):
         if (new_val == self._dir_path):
-            print("Path already set to " + self._dir_path)
+            print("Model directory already set to " + self._dir_path)
         else:
             self._dir_path = new_val
             print("Model directory is set to " + self._dir_path)
@@ -228,10 +231,10 @@ class _BaseModel:
     @doc_path.setter
     def doc_path(self, new_val):
         if (new_val == self._doc_path):
-            print("Path already set to " + self._doc_path)
+            print("Documentation directory already set to " + self._doc_path)
         else:
             self._doc_path = new_val
-            print("Model directory is set to " + self._doc_path)
+            print("Documentation directory is set to " + self._doc_path)
 
 class BaselineASRModel(_BaseModel):
     """
@@ -239,7 +242,8 @@ class BaselineASRModel(_BaseModel):
 
     Baseline Automatic Speech Recognition (ASR) model using CTC Loss.
     Architecture:
-        Conv1D --> Bidrectional(LSTM) --> Dense(vocab_len)
+        Conv1D --> Bidrectional(LSTM) --> Dense(vocab_len+1) 
+        +1 in Dense layer is for blank token needed in CTC.
 
     Example
     -------
@@ -264,7 +268,7 @@ class BaselineASRModel(_BaseModel):
             """Lambda function to calculate CTC loss in keras"""
             y_pred, labels, input_length, label_length = args
             # y_pred = y_pred[:, 2:, :]
-            return ctc_batch_cost(labels, y_pred, input_length, label_length)
+            return K.ctc_batch_cost(labels, y_pred, input_length, label_length)
 
         # Calculate output shape as len of vocab +1 for CTC blank token
         output_shape = self.vocab_len + 1
@@ -321,7 +325,9 @@ class BaselineASRModel(_BaseModel):
             optimizer string or class from keras.optimizers, defaulting to:
                 Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
         """
-        self.model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=optimizer, **kwargs)
+        self.model.compile(loss={'ctc': lambda y_true, y_pred: y_pred},
+                           optimizer=optimizer,
+                           **kwargs)
 
     def fit(self, *args, **kwargs):
         """
@@ -330,36 +336,32 @@ class BaselineASRModel(_BaseModel):
         TODO: currently not implemented. use fit_generator instead.
         """
         # self._fit(*args, **kwargs)
-        raise AttributeError("Method fit() is not implemented. Please use fit_generator() instead.")
+        raise NotImplementedError("Method fit() is not implemented. Please use fit_generator() instead.")
 
     def fit_generator(self, train_generator, validation_generator=None, epochs=1, **kwargs):
         """
         Fit the model using generator. 
         
-        This fit method prefer explicit input on training and validation data, rather than using validation_split. It is 
-        best to first create your data, for example, by using train_test_split method from scikit-learn.
-
-        By default, model will use EarlyStopping callbacks to stop from overfitting training dataset.
+        This fit method prefer explicit input on training and validation data, rather than using 
+        validation_split.
         
         Parameters
         ----------
         train_generator : keras.utils.Sequence
             yield (inputs, outputs) where:
             inputs = {
-                'the_input':     np.ndarray[shape=(batch_size, max_seq_length, mfcc_features)]: input audio data
-                'the_labels':    np.ndarray[shape=(batch_size, max_transcript_length)]: transcription data
-                'input_length':  np.ndarray[shape=(batch_size, 1)]: length of each sequence (numb of frames) in output layer
-                'label_length':  np.ndarray[shape=(batch_size, 1)]: length of each sequence (numb of letters) in y
+                'the_input':     np.ndarray[shape=(batch_size, max_seq_length, mfcc_features)]
+                'the_labels':    np.ndarray[shape=(batch_size, max_transcript_length)]
+                'input_length':  np.ndarray[shape=(batch_size, 1)]
+                'label_length':  np.ndarray[shape=(batch_size, 1)] 
             },
             outputs = {
-                'ctc':           np.ndarray[shape=(batch_size, 1)]: dummy data for dummy loss function
+                'ctc':           np.ndarray[shape=(batch_size, 1)]
             }
         validation_generator : keras.utils.Sequence, optional
-            validation data generator, yield same inputs, outputs shape as train_generator
+            validation data generator, yield same (inputs, outputs) shape as train_generator
         epochs : int
-            number of iteration throughout the whole dataset
-        **kwargs
-            keras fit_generator keyword arguments
+            number of iteration throughout the whole datasetd
         """
         self.history = self.model.fit_generator(generator=train_generator, 
                                  validation_data=validation_generator,
@@ -368,8 +370,8 @@ class BaselineASRModel(_BaseModel):
                                  **kwargs)
         self._save_history_figure()
 
-    # def evaluate(self, X_test, y_test):
-    #     return self.model.evaluate(X_test, y_test)
+    def evaluate(self, X_test, y_test):
+        raise NotImplementedError("evaluate() method not implemented for this model.")
 
     def predict(self, X_test):
         """
@@ -391,4 +393,4 @@ class BaselineASRModel(_BaseModel):
 
         ctc_matrix = pred_func(X_test)
 
-        return ctc_matrix[0]
+        return ctc_matrix[0] # get only the matrix

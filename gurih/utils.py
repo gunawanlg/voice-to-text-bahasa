@@ -4,6 +4,7 @@ import glob
 def batch(l, b=1, n=None):
     """
     Create batch from iterable.
+
     Parameters
     ----------
     l : list
@@ -19,6 +20,7 @@ def batch(l, b=1, n=None):
     -------
     batches : iterable
         generator of batch
+
     Example
     -------
     If n is None, or not inputted
@@ -33,6 +35,7 @@ def batch(l, b=1, n=None):
     [3, 4, 5]
     [6, 7, 8]
     [9]
+
     if n is not None:
     >>> l = list(range(10))
     >>> batches = batch(l, n=3)
