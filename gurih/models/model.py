@@ -5,6 +5,7 @@ All script in this file is expected to be run from /project/notebooks/modelling 
 
 See notebook for example usage.
 """
+import os
 from math import ceil
 
 import tensorflow.keras.backend as K
@@ -15,7 +16,7 @@ from tensorflow.keras import Input, Sequential
 from tensorflow.keras.layers import Lambda, Dense, Dropout, LSTM, Activation 
 from tensorflow.keras.layers import Masking, Conv1D, Bidirectional, TimeDistributed
 # from tensorflow.keras.metrics import Precision, Recall
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
 from tensorflow.keras.models import model_from_json
 from matplotlib import pyplot as plt
 
@@ -32,7 +33,7 @@ class _BaseModel:
     It also defines default dir_path and doc_path if this class was to be used in directory /notebooks/modelling/
 
     Available convenience function for subclassing:
-        _create_callbacks : create basic ModelCheckpoint and EarlyStoppping callback
+        _create_callbacks : create basic ModelCheckpoint, EarlyStoppping, and CSVLogger callback
             the callbacks created will be saved in object.
         _fit : keras model fit method
             defines basic fit method, with ModelCheckpoint and EarlyStopping callbacks if validation data is provided 
@@ -63,6 +64,7 @@ class _BaseModel:
         self.history = None
         self.fig = None
         self.callbacks = None
+        self.name = None
         self._show_summary()
 
     def compile(self):
@@ -87,22 +89,23 @@ class _BaseModel:
             raise Exception("Model not created and trained")
 
         model_json = self.model.to_json()
-        with open(self._dir_path + self.model.name + ".json", "w") as f:
+        with open(self._dir_path + self.name + ".json", "w") as f:
             f.write(model_json)
         
-        print(f"Model {self.model.name} saved at: {self._dir_path}{self.model.name}.json")
-        self.model.save_weights(self._dir_path + self.model.name + ".h5")
-        print(f"Weights serialized at: {self._dir_path}{self.model.name}.h5")
+        print(f"Model {self.name} saved at: {self._dir_path}{self.name}.json")
+        self.model.save_weights(self._dir_path + self.name + ".h5")
+        print(f"Weights serialized at: {self._dir_path}{self.name}.h5")
         
-    def load(self):
+    def load(self, filename):
         """Load model from .json and weights from .h5"""
-        json_file = open(self._dir_path + self.model.name + '.json', 'r')
-        loaded_model_json = json_file.read()
-        json_file.close()
-
-        self.model = model_from_json(loaded_model_json)
-        self.model.load_weights(self._dir_path + self.model.name + ".h5")
-        print(f"Loaded model {self.model.name} from disk.")
+        if self.model == None:
+            json_file = open(filename + '.json', 'r')
+            loaded_model_json = json_file.read()
+            json_file.close()
+            self.model = model_from_json(loaded_model_json)
+        
+        self.model.load_weights(filename)
+        print(f"Loaded model {filename} from disk.")
 
     def plot_history(self):
         """Plot train/val loss figure created from _save_history()"""
@@ -146,26 +149,29 @@ class _BaseModel:
         
         self._save_history_figure()
 
-    def _callbacks(self, min_delta=1e-4, patience=2):
+    def _callbacks(self, min_delta=1e-4, patience=2, save_weights_only=False):
         """
         Basic keras fit callbacks.
 
         Save best model and its weights according to best validation loss, while also performs
         early stopping when it starts to overfit.
         """
-        checkpoint_path = self._dir_path+self.model.name+'.h5'
+        checkpoint_path = os.path.abspath(self._dir_path+self.name+'.h5')
         cp_callback = ModelCheckpoint(filepath=checkpoint_path,
                                           monitor='val_loss',
                                           save_best_only=True,
                                           mode='min',
-                                          save_weights_only=False)
+                                          save_weights_only=save_weights_only)
 
         es_callback = EarlyStopping(monitor='val_loss',
-                                    min_delta=1e-4,
-                                    patience=2,
+                                    min_delta=min_delta,
+                                    patience=patience,
                                     mode='min')
 
-        self.callbacks = [cp_callback, es_callback]
+        hist_path = os.path.abspath(self._doc_path+self.name+'.csv')
+        hist_callback = CSVLogger(hist_path)
+
+        self.callbacks = [cp_callback, es_callback, hist_callback]
         
     def _show_summary(self):
         """Show summary of the model after calling __init__"""
@@ -189,7 +195,7 @@ class _BaseModel:
             ax.set_ylabel('loss')
             ax.set_xlabel('epoch')
             ax.legend(['train', 'val'], loc='upper left')
-            plt.savefig(self._doc_path+self.model.name+'.png', dpi=300)
+            plt.savefig(self._doc_path+self.name+'.png', dpi=300)
         # With validation training
         else:
             fig, ax = plt.subplots(figsize=(15, 6))
@@ -198,7 +204,7 @@ class _BaseModel:
             ax.set_ylabel('loss')
             ax.set_xlabel('epoch')
             ax.legend(['train'], loc='upper left')
-            plt.savefig(self._doc_path+self.model.name+'.png', dpi=300)
+            plt.savefig(self._doc_path+self.name+'.png', dpi=300)
 
         self.fig = fig
         plt.close(fig)
@@ -240,8 +246,8 @@ class BaselineASRModel(_BaseModel):
         See 3.0-glg-baseline-model.ipynb for detailed example
     """
     def __init__(self, input_shape, vocab_len, filters=200, kernel_size=11, strides=2, padding='valid', 
-                 n_lstm_units=200):
-        super().__init__()
+                 n_lstm_units=200, **kwargs):
+        super().__init__(**kwargs)
         self.vocab_len     = vocab_len
         self.input_shape   = input_shape
         self._filters      = filters
@@ -285,7 +291,7 @@ class BaselineASRModel(_BaseModel):
                               name='ctc')([y_pred, labels, input_length, label_length])
 
         self.model = Model(inputs=[input_in, labels, input_length, label_length], outputs=[loss_out])
-        self.model._name = '_'.join(["BaselineASR",
+        self.name = '_'.join(["BaselineASR",
                                      'f'+str(self._filters), 
                                      'k'+str(self._kernel_size), 
                                      's'+str(self._strides), 

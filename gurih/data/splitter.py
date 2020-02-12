@@ -35,8 +35,8 @@ class Splitter(TransformerMixin):
     Returns
     -------
     out : list of lists or numpy.ndarray
-        list of lists if 'same' padding as output chunks will not have equal
-        shape. Return numpy array otherwise.
+        return list of lists if padding='same' as output chunks will not have 
+        equal shape. Return numpy array otherwise.
         
     """
     def __init__(self, max_frame_length=80000, strides=80000, padding='same',
