@@ -20,7 +20,8 @@ class SplitterTest(unittest.TestCase):
     def test_run_same_padding(self):
         splitter = Splitter(max_frame_length=5,
                             strides=4,
-                            padding='same')
+                            padding='same',
+                            low_memory=False)
         out = splitter.fit_transform(self.data)
 
         self.assertTupleEqual(out.shape, (1, 13, 5))
@@ -28,11 +29,24 @@ class SplitterTest(unittest.TestCase):
     def test_run_valid_padding(self):
         splitter = Splitter(max_frame_length=5,
                             strides=4,
-                            padding='valid')
+                            padding='valid',
+                            low_memory=False)
         out = splitter.fit_transform(self.data)
 
         self.assertEqual(len(out[0]), 13)
         self.assertEqual(len(out[0][-1]), 2)
+
+    def test_run_low_memory(self):
+        splitter = Splitter(max_frame_length=5,
+                            strides=4,
+                            padding='valid',
+                            low_memory=True)
+        out = splitter.fit_transform(self.data)
+
+        out_list = [x for x in out]
+
+        self.assertEqual(len(out_list[0]), 13)
+        self.assertEqual(len(out_list[0][-1]), 2)
 
 class AeneasSplitterTest(unittest.TestCase):
     """

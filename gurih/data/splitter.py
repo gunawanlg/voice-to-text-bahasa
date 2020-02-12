@@ -24,7 +24,9 @@ class Splitter(TransformerMixin):
     padding : str, [default='same']
         if 'same', zero pad chunks to size of max_frame_length
         if 'valid', does not do padding
-    
+    low_memory : bool, [default=False]
+        will return a generator object if True
+
     Raises
     ------
     ValueError
@@ -37,7 +39,8 @@ class Splitter(TransformerMixin):
         shape. Return numpy array otherwise.
         
     """
-    def __init__(self, max_frame_length=80000, strides=80000, padding='same'):
+    def __init__(self, max_frame_length=80000, strides=80000, padding='same',
+                 low_memory=False):
         if strides > max_frame_length:
             raise ValueError(f"Strides value of {strides} exceed frame_length \
                              of {max_frame_length}.")
@@ -45,6 +48,7 @@ class Splitter(TransformerMixin):
         self.max_frame_length = max_frame_length
         self.strides = strides
         self.padding = padding
+        self.low_memory = low_memory
         
     def fit(self, X, y=None):
         """Do nothing."""
@@ -52,24 +56,41 @@ class Splitter(TransformerMixin):
     
     def transform(self, X):
         """X is numpy array of shape (m, sample_rate*duration)"""
-        out = []
-        for x in X:
+        if (self.low_memory == True):
+           return self._tranform_generator(X)
+        else:
+            out = []
+            for x in X:
+                seq_length = x.shape[0]
+                if seq_length <= self.max_frame_length:
+                    if (seq_length - self.strides) > 0: # can get at least two chunks
+                        out.append(self.split(x))
+                    else:
+                        warnings.warn(f"Found input shape {x.shape[0]} <= \
+                                    {self.max_frame_length}, skipping \
+                                    split.")
+                        out.append(x)
+                else:
+                    out.append(self.split(x))
+            
+            if self.padding == 'same':
+                out = np.array(out)
+            
+            return out
+
+    def _tranform_generator(self, X):
+         for x in X:
             seq_length = x.shape[0]
             if seq_length <= self.max_frame_length:
                 if (seq_length - self.strides) > 0: # can get at least two chunks
-                    out.append(self.split(x))
+                    yield self.split(x)
                 else:
                     warnings.warn(f"Found input shape {x.shape[0]} <= \
                                 {self.max_frame_length}, skipping \
                                 split.")
-                    out.append(x)
+                    yield x
             else:
-                out.append(self.split(x))
-        
-        if self.padding == 'same':
-            out = np.array(out)
-        
-        return out
+                yield self.split(x)
 
     def split(self, x):
         chunks = []
