@@ -1,11 +1,12 @@
 import unittest
-from datetime import datetime
+# from datetime import datetime
 
-from tinytag import TinyTag
+# from tinytag import TinyTag
 from sklearn.pipeline import Pipeline
 
 from gurih.features.extractor import MFCCFeatureExtractor
 from gurih.data.normalizer import AudioNormalizer
+
 
 class PipelineTest(unittest.TestCase):
 
@@ -21,7 +22,7 @@ class PipelineTest(unittest.TestCase):
         """
 
         norm_feature_extractor = Pipeline(
-            steps = [
+            steps=[
                 ("normalizer", self.audio_normalizer),
                 ("mfcc_feature_extractor", MFCCFeatureExtractor(write_output=True))
             ]
@@ -33,12 +34,12 @@ class PipelineTest(unittest.TestCase):
 
     def test_delta_delta_pipeline(self):
         """
-        Test if the delta delta pipeline returns the 
+        Test if the delta delta pipeline returns the
         correct shape.
         """
 
         norm_feature_extractor = Pipeline(
-            steps = [
+            steps=[
                 ("normalizer", self.audio_normalizer),
                 ("mfcc_feature_extractor", MFCCFeatureExtractor(append_delta=True))
             ]
@@ -47,6 +48,7 @@ class PipelineTest(unittest.TestCase):
         pipeline_outputs = norm_feature_extractor.fit_transform(self.X)
 
         self.assertEqual(pipeline_outputs[0].shape[1], 39)
+
 
 if __name__ == "__main__":
     unittest.main()

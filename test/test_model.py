@@ -9,6 +9,7 @@ from gurih.models.model import BaselineASRModel
 from gurih.models.utils import CharMap
 from sklearn.pipeline import Pipeline
 
+
 class BaselineASRModelTest(unittest.TestCase):
     """Test suite for BaselineASRModel class"""
     @classmethod
@@ -17,7 +18,7 @@ class BaselineASRModelTest(unittest.TestCase):
         X = glob.glob(input_dir+"*.mp3")
 
         pipeline = Pipeline(
-            steps = [
+            steps=[
                 ("normalizer", AudioNormalizer(output_dir=input_dir)),
                 ("mfcc_feature_extractor", MFCCFeatureExtractor(write_output=True,
                                                                 output_dir=input_dir,
@@ -33,7 +34,7 @@ class BaselineASRModelTest(unittest.TestCase):
         cls._MAX_SEQ_LENGTH = 2500
         cls._MAX_LABEL_LENGTH = 100
         cls._BATCH_SIZE = 1
-        
+
     @classmethod
     def tearDownClass(cls):
         npzs = glob.glob(cls._input_dir+"*.npz")
@@ -42,7 +43,7 @@ class BaselineASRModelTest(unittest.TestCase):
             os.remove(npz)
         for json in jsons:
             os.remove(json)
-        
+
         pngs = glob.glob(cls._input_dir+"*.png")
         for png in pngs:
             os.remove(png)
@@ -54,10 +55,10 @@ class BaselineASRModelTest(unittest.TestCase):
             model.compile()
         except ():
             model = None
-        
+
         self._model = model
         self.assertIsNotNone(model)
-        
+
     def test_do_fit_generator(self):
         model = BaselineASRModel(input_shape=(self._MAX_SEQ_LENGTH, 39),
                                  vocab_len=len(CharMap()))

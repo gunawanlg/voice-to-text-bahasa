@@ -1,14 +1,10 @@
-from datetime import datetime
-import time
-import re
 import os
+import re
+import time
 
-import numpy as np
 import pandas as pd
-
-import requests
 import urllib
-from selenium import webdriver      
+from selenium import webdriver
 # from selenium.common.exceptions import NoSuchElementException
 # from selenium.webdriver.common.by import By
 # from selenium.webdriver.support.ui import WebDriverWait
@@ -32,13 +28,13 @@ class BibleIsScraper:
     data : list of list
         Collection of scrape page data in following format:
             [url : str, chapter_string : str, audio_title : str]
-        As the sraping process goes, this attributes will be updated accordingly by appending 
-        the data list. Audio title filename is derived from url, describing chapter and verse 
+        As the sraping process goes, this attributes will be updated accordingly by appending
+        the data list. Audio title filename is derived from url, describing chapter and verse
         it points to.
-            url            = https://live.bible.is/bible/INDASV/GEN/1?audio_type=audio 
+            url            = https://live.bible.is/bible/INDASV/GEN/1?audio_type=audio
             audio_filename = INDASV_GEN_1.mp3
     urls : list of str
-        ALl chapter urls from bible.is to be used in scrape_all method. It is an empty list 
+        ALl chapter urls from bible.is to be used in scrape_all method. It is an empty list
         until get_urls method is called.
 
     Parameters
@@ -73,7 +69,7 @@ class BibleIsScraper:
         self.scrape_audio = True
         self.debug = []
 
-        if not os.path.exists(self.output_dir): 
+        if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
             print("Output directory created at " + self.output_dir)
         else:
@@ -82,7 +78,7 @@ class BibleIsScraper:
         print("Scrape text: " + str(self.scrape_text))
         print("Scrape audio: " + str(self.scrape_audio))
         print("Edit the configuration by setting corresponding attributes.")
-            
+
     def get_urls(self):
         """
         Method to get base urls for all chapters. You may need to update this method according
@@ -96,13 +92,13 @@ class BibleIsScraper:
         driver.get(base_url)
 
         # The chapter url is hidden until after we click on the dropdown menu
-        button =  driver.find_element_by_id("chapter-dropdown-button")
+        button = driver.find_element_by_id("chapter-dropdown-button")
         driver.execute_script("arguments[0].click()", button)
         time.sleep(3)
 
         chapters = driver.find_elements_by_css_selector(".chapter-box")
         chapter_urls = [chapter.get_attribute('href') for chapter in chapters]
-        
+
         # Apparently, chapter_urls will have None values for the base url, we need to replace
         # this None value to the base url
         none_index = chapter_urls.index(None)
@@ -110,22 +106,22 @@ class BibleIsScraper:
 
         # Save urls as class attribute
         self.urls = chapter_urls
-        
+
         # Close the driver
         driver.close()
-    
+
     def run(self, urls=None):
         if not urls:
             if not self.urls:
                 raise AttributeError("Urls not defined. Use get_urls() or provide urls parameter.")
             else:
                 urls = self.urls
-        
+
         print("Running scraper:")
         print("Scrape text: " + str(self.scrape_text))
         print("Scrape audio: " + str(self.scrape_audio))
-        
-        if (self.scrape_audio or self.scrape_text) == False:
+
+        if (self.scrape_audio or self.scrape_text) is False:
             raise AttributeError("Either self.scrape_audio or self.scrape_text should be True.")
         else:
             for url in tqdm(urls):
@@ -135,11 +131,11 @@ class BibleIsScraper:
                 except Exception as e:
                     print(url)
                     print(e)
-            
+
     def scrape_page(self, url):
         """
-        Methods to get transcription and download audio file from each url. You may need to 
-        update this method according to the latest page layout. You may use chrome devtools 
+        Methods to get transcription and download audio file from each url. You may need to
+        update this method according to the latest page layout. You may use chrome devtools
         via inspect element to see the page source.
 
         Latest modified: January 17, 2020
@@ -157,27 +153,27 @@ class BibleIsScraper:
 
             verses = []
             if len(ps) != 0:
-                for p in ps: # not including the chapter number
-                    p_text = p.get_attribute("innerHTML") # get all text
+                for p in ps:  # not including the chapter number
+                    p_text = p.get_attribute("innerHTML")  # get all text
 
-                    # Find disconnected verse, join it    
+                    # Find disconnected verse, join it
                     hanging_verse_idx = p_text.find('<')
                     if hanging_verse_idx != 0:
                         hanging_verse = p_text[:hanging_verse_idx]
                         self.debug.append(f"{url} {hanging_verse}")
-                        if len(verses) == 0: # handle occurence in first <p>
+                        if len(verses) == 0:  # handle occurence in first <p>
                             verses.append(hanging_verse)
                         else:
                             last_verse = verses.pop()
                             verses.append(last_verse + " " + hanging_verse)
-                    
+
                     other_verses = p.find_elements_by_css_selector(".v")
-                    other_verses = [other_verse.get_attribute("innerHTML") for other_verse in other_verses]
+                    other_verses = [v.get_attribute("innerHTML") for v in other_verses]
                     verses.extend(other_verses)
             # handle chapter not having any p element
             else:
                 other_verses = chapter_section.find_elements_by_css_selector(".v")
-                other_verses = [other_verse.get_attribute("innerHTML") for other_verse in other_verses]
+                other_verses = [v.get_attribute("innerHTML") for v in other_verses]
                 verses.extend(other_verses)
 
             chapter_string = '\n\n'.join(verses)
@@ -193,7 +189,7 @@ class BibleIsScraper:
 
             with open(audio_title, "wb") as f:
                 f.write(response.read())
-                
+
         # Close the driver
         driver.close()
 
@@ -201,7 +197,7 @@ class BibleIsScraper:
 
     def to_dataframe(self):
         return pd.DataFrame(self.data, columns=["url", "chapter_string", "audio_title"])
-    
+
     def write_csv(self, filename=None):
         if filename is None:
             filename = self.output_dir + 'bibleis_transcription.csv'
@@ -210,7 +206,7 @@ class BibleIsScraper:
         self._check_null_df(df)
 
         self.to_dataframe().to_csv(filename, sep=',', line_terminator='\n', index=False)
-        print("Data written in "+filename)
+        print("Data written in " + filename)
 
     def _check_null_df(self, df):
         """
@@ -225,11 +221,11 @@ class BibleIsScraper:
         ValueError
             if dataframe contain null values in either text or audio column
         """
-        if self.scrape_text == True:
+        if self.scrape_text is True:
             sum_null_text = df['chapter_string'].isnull().sum()
             if sum_null_text > 0:
                 raise ValueError(f"Found {sum_null_text} null values in chapter_string column.")
-        if self.scrape_audio == True:
+        if self.scrape_audio is True:
             sum_null_audio = df['audio_title'].isnull().sum()
             if sum_null_audio > 0:
                 raise ValueError(f"Found {sum_null_audio} null values in audio_title column.")

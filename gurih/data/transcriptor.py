@@ -48,11 +48,11 @@ class ASRTranscriptor(BaseEstimator):
         Parameters
         ----------
         X : np.array[shape=(m, max_seq_length, features)]
-            m examples mfcc input of audio data 
+            m examples mfcc input of audio data
         y : list of str
-            transcription of given input sequences X 
+            transcription of given input sequences X
         """
-        if self.low_memory == True:
+        if self.low_memory is True:
             return self.__fit_generator(X, y)
         else:
             ctc_matrix = self.model.predict(X)
@@ -60,8 +60,8 @@ class ASRTranscriptor(BaseEstimator):
 
             if y is not None:
                 y_pred = ctc_decode(ctc_matrix,
-                                    self.idx_to_char_map, 
-                                    greedy=False)    
+                                    self.idx_to_char_map,
+                                    greedy=False)
                 self.wer_ = wer(y, y_pred, write_html=False)
 
         return self
@@ -73,7 +73,7 @@ class ASRTranscriptor(BaseEstimator):
         Parameters
         ----------
         X : np.array[shape=(m, max_seq_length, features)]
-            m examples mfcc input of audio data 
+            m examples mfcc input of audio data
 
         Returns
         -------
@@ -81,9 +81,9 @@ class ASRTranscriptor(BaseEstimator):
             output transcription/
         """
         check_is_fitted(self, 'ctc_matrix_')
-        if self.low_memory == False:
+        if self.low_memory is False:
             y_pred = ctc_decode(self.ctc_matrix_,
-                                self.idx_to_char_map, 
+                                self.idx_to_char_map,
                                 greedy=False)
         else:
             y_pred = []
@@ -97,13 +97,13 @@ class ASRTranscriptor(BaseEstimator):
 
     def __fit_generator(self, X, y):
         ctc_matrix = self.__ctc_matrix_gen(X)
-        self.ctc_matrix_ = self.__ctc_matrix_gen(X) # generator function
+        self.ctc_matrix_ = self.__ctc_matrix_gen(X)  # generator function
 
         if y is not None:
             y_pred = []
             for ctc in ctc_matrix:
                 y_pred_cache = ctc_decode(ctc,
-                                          self.idx_to_char_map, 
+                                          self.idx_to_char_map,
                                           greedy=False)
                 y = y_pred_cache[0]
                 y_pred.append(y)
@@ -113,5 +113,3 @@ class ASRTranscriptor(BaseEstimator):
         for x in X:
             ctc = self.model.predict(np.expand_dims(x, axis=0))
             yield ctc
-
-

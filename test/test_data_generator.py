@@ -1,9 +1,6 @@
 import os
 import glob
-import string
 import unittest
-
-import numpy as np
 
 from sklearn.pipeline import Pipeline
 from gurih.data.normalizer import AudioNormalizer
@@ -20,11 +17,11 @@ class DataGeneratorTest(unittest.TestCase):
         Make dummy .npz and .txt
         """
         input_dir = "test_data/data_generator/"
-        
-        X = glob.glob(input_dir+"*.mp3")
+
+        X = glob.glob(f"{input_dir}*.mp3")
 
         pipeline = Pipeline(
-            steps = [
+            steps=[
                 ("normalizer", AudioNormalizer(output_dir=input_dir)),
                 ("mfcc_feature_extractor", MFCCFeatureExtractor(write_output=True,
                                                                 output_dir=input_dir,
@@ -39,8 +36,9 @@ class DataGeneratorTest(unittest.TestCase):
         """
         Delete dummy .npz and .txt
         """
-        npz_files = glob.glob(cls.input_dir+"*.npz")
-        json_files = glob.glob(cls.input_dir+"*.json")
+        npz_files = glob.glob(f"{cls.input_dir}*.npz")
+        json_files = glob.glob(f"{cls.input_dir}*.json")
+
         for npz_file in npz_files:
             os.remove(npz_file)
         for json_file in json_files:
@@ -54,11 +52,11 @@ class DataGeneratorTest(unittest.TestCase):
         BATCH_SIZE = 1
 
         generator = DataGenerator(input_dir=self.input_dir,
-                                max_seq_length=MAX_SEQ_LENGTH,
-                                max_label_length=MAX_LABEL_LENGTH,
-                                ctc_input_length=1245,
-                                char_to_idx_map=CHAR_TO_IDX_MAP,
-                                batch_size=BATCH_SIZE)
+                                  max_seq_length=MAX_SEQ_LENGTH,
+                                  max_label_length=MAX_LABEL_LENGTH,
+                                  ctc_input_length=1245,
+                                  char_to_idx_map=CHAR_TO_IDX_MAP,
+                                  batch_size=BATCH_SIZE)
 
         batch0, _ = generator.__getitem__(0)
         batch1, _ = generator.__getitem__(1)

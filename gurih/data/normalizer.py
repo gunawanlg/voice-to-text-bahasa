@@ -2,13 +2,14 @@ import os
 import json
 from datetime import datetime
 
-from sklearn.base import TransformerMixin
 import librosa
+from sklearn.base import TransformerMixin
+
 
 class AudioNormalizer(TransformerMixin):
     """
     Normalize all of the audio files so that they will have
-    the same sample_rate, downsized to 1 channel and 
+    the same sample_rate, downsized to 1 channel and
     bit_depth of {-1, 1}
 
     Parameters
@@ -41,11 +42,12 @@ class AudioNormalizer(TransformerMixin):
     >>> normalizer = AudioNormalizer()
     >>> X = ["OSR_us_000_0010_8k.wav", "OSR_us_000_0011_8k.wav"]
     >>> normalizer.transform(X)
-    {0: array([0., 0., 0., ..., 0., 0., 0.], dtype=float32), 1: 
+    {0: array([0., 0., 0., ..., 0., 0., 0.], dtype=float32), 1:
     array([0., 0., 0., ..., 0., 0., 0.], dtype=float32)}
     """
 
-    def __init__(self, sample_rate=16000, mono=True, write_audio_output=False, output_dir=".", encode=True):
+    def __init__(self, sample_rate=16000, mono=True, write_audio_output=False, output_dir=".",
+                 encode=True):
         self.sample_rate = sample_rate
         self.mono = mono
         self.output_dir = output_dir
@@ -67,11 +69,11 @@ class AudioNormalizer(TransformerMixin):
         Returns
         -------
         signal_dict: dict
-            Dictionary of signal and corresponding ids (if encode=True) or 
+            Dictionary of signal and corresponding ids (if encode=True) or
             filenames
         """
-        
-        # Create a dictionary to store key-value pairs of 
+
+        # Create a dictionary to store key-value pairs of
         signal_dict = {}
 
         # Create a dictionary to encode the name of the sample of ids
@@ -94,14 +96,14 @@ class AudioNormalizer(TransformerMixin):
                 # normalized and convert thedm to wav
                 filename = f"{processed_data_directory}/{filename[:-4]}_{date}_normalized.wav"
                 librosa.output.write_wav(filename, signal, sample_rate)
-            
+
             # Save the filenames and signal and ecode them into int
             if self.encode:
                 id_dict[i] = filename
                 signal_dict[i] = signal
             else:
                 filename = filename.replace(".mp3", "")
-                signal_dict[filename] = signal 
+                signal_dict[filename] = signal
 
         # Write the .json file to store the corresponding ids and filenames
         if self.encode:

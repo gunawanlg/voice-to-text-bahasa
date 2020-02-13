@@ -1,21 +1,14 @@
-import math
-from random import shuffle as shuf
-import string
 import glob
+from random import shuffle as shuf
 
-import librosa
 import numpy as np
-import pandas as pd
 from tensorflow.keras.utils import Sequence
-
-from gurih.features.extractor import MFCCFeatureExtractor
-from gurih.data.normalizer import AudioNormalizer
 
 
 class DataGenerator(Sequence):
     """
     Generates data for ASRModel.
-    
+
     Parameters
     ----------
     input_dir : str
@@ -69,8 +62,8 @@ class DataGenerator(Sequence):
         self.num_batch = num_batch
         self.shuffle = shuffle
 
-        features_filename = sorted(glob.glob(input_dir+"*.npz"))
-        transcription_filename = sorted(glob.glob(input_dir+"*.txt"))
+        features_filename = sorted(glob.glob(input_dir + "*.npz"))
+        transcription_filename = sorted(glob.glob(input_dir + "*.txt"))
 
         n_features = len(features_filename)
         n_transcription = len(transcription_filename)
@@ -91,24 +84,26 @@ class DataGenerator(Sequence):
             self.num_batch = cal_num_batch
 
         return self.num_batch
-    
+
     def __getitem__(self, batch_index):
         """
         Generate one batch of data
-                
+
         Return
         ------
         inputs : dict
-            'the_input':     np.ndarray[shape=(batch_size, max_seq_length, mfcc_features)]: input audio data
-            'the_labels':    np.ndarray[shape=(batch_size, max_transcript_length)]: transcription data
-            'input_length':  np.ndarray[shape=(batch_size, 1)]: length of each sequence (numb of frames) in output layer
-            'label_length':  np.ndarray[shape=(batch_size, 1)]: length of each sequence (numb of letters) in y
+            'the_input':     np.ndarray[shape=(batch_size, max_seq_length, mfcc_features)]
+            'the_labels':    np.ndarray[shape=(batch_size, max_transcript_length)]
+            'input_length':  np.ndarray[shape=(batch_size, 1)]: ctc input length
+            'label_length':  np.ndarray[shape=(batch_size, 1)]: ctc input label length
         outputs : dict
             'ctc':           np.ndarray[shape=(batch_size, 1)]: dummy data for dummy loss function
         """
 
         # Generate indexes of current batch
-        indexes_in_batch = self.indexes[batch_index * self.batch_size:(batch_index + 1) * self.batch_size]
+        indexes_in_batch = self.indexes[
+            batch_index * self.batch_size:(batch_index + 1) * self.batch_size
+        ]
 
         # Shuffle indexes within current batch if shuffle=true
         if self.shuffle:
@@ -117,9 +112,9 @@ class DataGenerator(Sequence):
         # Load audio and transcript
         X = []
         y = []
-        input_length = [self.ctc_input_length]*len(indexes_in_batch)
+        input_length = [self.ctc_input_length] * len(indexes_in_batch)
         # input_length = math.ceil(float(input_length - 11 + 1) / float(2))
-        label_length = [self.max_label_length]*len(indexes_in_batch)
+        label_length = [self.max_label_length] * len(indexes_in_batch)
 
         for idx in indexes_in_batch:
             x_tmp = np.load(f"{self.input_dir}{idx}.npz")
@@ -138,7 +133,7 @@ class DataGenerator(Sequence):
         y = np.array(y)
         input_length = np.array(input_length)
         label_length = np.array(label_length)
-        
+
         inputs = {
             'the_input': X,
             'the_labels': y,
@@ -151,7 +146,7 @@ class DataGenerator(Sequence):
         }
 
         return inputs, outputs
-    
+
     @staticmethod
     def _pad_sequence(x, max_seq_length):
         """Zero pad input features sequence"""
@@ -163,7 +158,7 @@ class DataGenerator(Sequence):
             out[:x.shape[0]] = x
         else:
             out = x
-        
+
         return out
 
     @staticmethod

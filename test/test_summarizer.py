@@ -5,6 +5,7 @@ import pandas as pd
 
 from gurih.data.summarizer import Summarizer
 
+
 class SummarizerTest(unittest.TestCase):
     """
     Test if the summarizer returns the right outputs
@@ -21,7 +22,6 @@ class SummarizerTest(unittest.TestCase):
         """
         summarized_df = self.summarizer.transform(self.X)
 
-
         # Check whether Summarizer correctly writes the output
         csv_output = f"{self.dir}/statistical_summary.csv"
         csvs = glob.glob(f"{self.dir}/*.csv")
@@ -34,7 +34,6 @@ class SummarizerTest(unittest.TestCase):
         self.assertGreater(summarized_df.shape[0], 1)
         self.assertTrue(csv_output in csvs)
 
+
 if __name__ == "__main__":
     unittest.main()
-
-        
