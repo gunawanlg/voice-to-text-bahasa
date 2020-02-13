@@ -2,9 +2,51 @@ import os
 import glob
 import unittest
 
+import numpy as np
 from pydub import AudioSegment
 from pydub.utils import mediainfo
-from gurih.data.splitter import AeneasSplitter
+from gurih.data.splitter import Splitter, AeneasSplitter
+
+
+class SplitterTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.data = np.array([list(range(50))], dtype='float')
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.data
+
+    def test_run_same_padding(self):
+        splitter = Splitter(max_frame_length=5,
+                            strides=4,
+                            padding='same',
+                            low_memory=False)
+        out = splitter.fit_transform(self.data)
+
+        self.assertTupleEqual(out.shape, (1, 13, 5))
+
+    def test_run_valid_padding(self):
+        splitter = Splitter(max_frame_length=5,
+                            strides=4,
+                            padding='valid',
+                            low_memory=False)
+        out = splitter.fit_transform(self.data)
+
+        self.assertEqual(len(out[0]), 13)
+        self.assertEqual(len(out[0][-1]), 2)
+
+    def test_run_low_memory(self):
+        splitter = Splitter(max_frame_length=5,
+                            strides=4,
+                            padding='valid',
+                            low_memory=True)
+        out = splitter.fit_transform(self.data)
+
+        out_list = [x for x in out]
+
+        self.assertEqual(len(out_list[0]), 13)
+        self.assertEqual(len(out_list[0][-1]), 2)
 
 class AeneasSplitterTest(unittest.TestCase):
     """

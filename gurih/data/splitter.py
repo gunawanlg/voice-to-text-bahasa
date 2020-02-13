@@ -1,9 +1,113 @@
+import math
 import json
+import warnings
 
+import numpy as np
+from sklearn.base import TransformerMixin
 from pydub import AudioSegment
 from pydub.utils import mediainfo
 from tqdm.auto import tqdm
 
+
+class Splitter(TransformerMixin):
+    """
+    Split audio files into chunks.
+    
+    Parameters
+    ----------
+    max_frame_length : int, [default=80000]
+        maximum frame length of splited audio, e.g. if sampling rate is
+        16000 Hz, then 80000 values equal to 5 secs of splitted audio.
+    strides : int, [default=80000]
+        if strides equals frame_length, then there will be no overlap in
+        splitted audio.
+    padding : str, [default='same']
+        if 'same', zero pad chunks to size of max_frame_length
+        if 'valid', does not do padding
+    low_memory : bool, [default=False]
+        will return a generator object if True
+
+    Raises
+    ------
+    ValueError
+        if strides > frame_length, causing cropped audio.
+
+    Returns
+    -------
+    out : list of lists or numpy.ndarray
+        return list of lists if padding='same' as output chunks will not have 
+        equal shape. Return numpy array otherwise.
+        
+    """
+    def __init__(self, max_frame_length=80000, strides=80000, padding='same',
+                 low_memory=False):
+        if strides > max_frame_length:
+            raise ValueError(f"Strides value of {strides} exceed frame_length \
+                             of {max_frame_length}.")
+ 
+        self.max_frame_length = max_frame_length
+        self.strides = strides
+        self.padding = padding
+        self.low_memory = low_memory
+        
+    def fit(self, X, y=None):
+        """Do nothing."""
+        return self
+    
+    def transform(self, X):
+        """X is numpy array of shape (m, sample_rate*duration)"""
+        if (self.low_memory == True):
+           return self._tranform_generator(X)
+        else:
+            out = []
+            for x in X:
+                seq_length = x.shape[0]
+                if seq_length <= self.max_frame_length:
+                    if (seq_length - self.strides) > 0: # can get at least two chunks
+                        out.append(self.split(x))
+                    else:
+                        warnings.warn(f"Found input shape {x.shape[0]} <= \
+                                    {self.max_frame_length}, skipping \
+                                    split.")
+                        out.append(x)
+                else:
+                    out.append(self.split(x))
+            
+            if self.padding == 'same':
+                out = np.array(out)
+            
+            return out
+
+    def _tranform_generator(self, X):
+         for x in X:
+            seq_length = x.shape[0]
+            if seq_length <= self.max_frame_length:
+                if (seq_length - self.strides) > 0: # can get at least two chunks
+                    yield self.split(x)
+                else:
+                    warnings.warn(f"Found input shape {x.shape[0]} <= \
+                                {self.max_frame_length}, skipping \
+                                split.")
+                    yield x
+            else:
+                yield self.split(x)
+
+    def split(self, x):
+        chunks = []
+        for i in range(0, x.shape[0], self.strides):
+            chunk = list(x[i:i+self.max_frame_length]) # python handles out of
+                                                       # bound indexing
+            if self.padding == 'same':
+                if len(chunk) < self.max_frame_length:
+                    padding = [0.0] * (self.max_frame_length - len(chunk))
+                    chunk += padding
+            chunks.append(chunk)
+        
+        assert len(chunks) == (math.ceil(x.shape[0] / self.strides)) \
+            , (f"Output shape mismatch {len(chunks)} and \
+                {math.ceil(x.shape[0] / self.max_frame_length)}")
+
+        return chunks
 
 class AeneasSplitter:
     """
