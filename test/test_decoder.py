@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from sklearn.exceptions import NotFittedError
 
-from gurih.data.decoder import CTCDecoder
+from gurih.models.decoder import CTCDecoder
 from gurih.models.model import BaselineASRModel
 from gurih.models.utils import CharMap
 

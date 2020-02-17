@@ -73,9 +73,6 @@ class AudioNormalizer(TransformerMixin):
             Dictionary of signal and corresponding ids (if encode=True) or
             filenames
         """
-        if X.ndim != 1:
-            raise ValueError("Required input shape to be in (m, ).")
-
         # Create a dictionary to store key-value pairs of
         signal_dict = {}
 
