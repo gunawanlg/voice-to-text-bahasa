@@ -25,7 +25,7 @@ class TranscriptorTest(unittest.TestCase):
             "keturunan ham ialah kush, misraim, put dan kanaan."
         ]
 
-        cls.model = BaselineASRModel(input_shape=(1000, 39), vocab_len=29)
+        cls.model = BaselineASRModel(input_shape=(1000, 39), vocab_len=29, training=False)
         cls.model.compile()
 
     @classmethod
