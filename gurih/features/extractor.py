@@ -80,8 +80,8 @@ class _BaseFeatureExtractor(TransformerMixin):
         z = np.zeros((pad_signal_length - signal_length))
         pad_signal = np.concatenate((signal, z))
 
-        indices = np.tile(np.arange(0, frame_length), (num_frames, 1))
-        + np.tile(np.arange(0, num_frames * frame_step, frame_step), (frame_length, 1)).T
+        indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) \
+            + np.tile(np.arange(0, num_frames * frame_step, frame_step), (frame_length, 1)).T
 
         frames = pad_signal[indices.astype(np.int32, copy=False)]
         frames *= np.tile(winfunc(frame_length), (num_frames, 1))
@@ -402,7 +402,28 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
             mfcc_signals = []
             for signal in X:
-                features = self._transform_single(signal)
+                signal = super()._apply_pre_emphasis(signal, self.pre_emphasis_coeff)
+                frames = super()._frame_signal(signal, self.sample_rate, self.frame_size, self.frame_stride)
+                spec_power = super()._apply_fourier_transform(frames, self.NFFT)
+
+                energy = np.sum(spec_power, 1)
+                energy = np.where(energy == 0, np.finfo(float).eps, energy)
+
+                filter_bank_ = self.filter_bank_
+                features = np.dot(spec_power, filter_bank_.T)
+                features = np.where(features == 0, np.finfo(float).eps, features)
+                features = np.log(features)
+                features = dct(features, type=self.dct_type, axis=1, norm=self.dct_norm)[:, :self.cep_num]
+                features = super()._apply_lifter(features, self.cep_lifter)
+
+                if self.append_energy:
+                    features[:, 0] = np.log(energy)
+
+                if self.append_delta:
+                    delta_features = super()._compute_delta(features)
+                    delta_features_delta = super()._compute_delta(delta_features)
+                    features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
+                # features = self._transform_single(signal)
                 mfcc_signals.append(features)
 
             return np.array(mfcc_signals)
