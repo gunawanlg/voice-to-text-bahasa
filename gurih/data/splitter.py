@@ -67,8 +67,8 @@ class Splitter(TransformerMixin):
                         out.append(self.split(x))
                     else:
                         warnings.warn(f"Found input shape {x.shape[0]} <= \
-                                    {self.max_frame_length}, skipping \
-                                    split.")
+                                        {self.max_frame_length}, skipping \
+                                        split.")
                         out.append(x)
                 else:
                     out.append(self.split(x))
@@ -86,8 +86,8 @@ class Splitter(TransformerMixin):
                     yield self.split(x)
                 else:
                     warnings.warn(f"Found input shape {x.shape[0]} <= \
-                                {self.max_frame_length}, skipping \
-                                split.")
+                                    {self.max_frame_length}, skipping \
+                                    split.")
                     yield x
             else:
                 yield self.split(x)

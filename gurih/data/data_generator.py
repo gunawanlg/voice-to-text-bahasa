@@ -78,8 +78,7 @@ class DataGenerator(Sequence):
         """
         Denotes the number of batches per epoch
         """
-
-        cal_num_batch = int(np.floor(self._m / self.batch_size))
+        cal_num_batch = int(np.ceil(self._m / self.batch_size))
         if (self.num_batch == 0) | (self.num_batch > cal_num_batch):
             self.num_batch = cal_num_batch
 
@@ -161,16 +160,98 @@ class DataGenerator(Sequence):
 
         return out
 
-    @staticmethod
-    def _pad_transcript(y, max_label_length):
+    def _pad_transcript(self, y, max_label_length):
         """Zero pad input label transcription"""
         out = None
         if len(y) > max_label_length:
             raise ValueError(f"Found label transcript {len(y)} more than {max_label_length}")
         elif len(y) < max_label_length:
-            out = np.zeros([max_label_length], dtype=int)
+            # out = np.full([max_label_length], len(self.char_to_idx_map)-1, dtype=int)
+            out = np.full([max_label_length], 0, dtype=int)
             out[:len(y)] = y
         else:
             out = y
 
         return out
+
+
+def iterate_data_generator(data_generator):
+    """
+    Create generator function for DataGenerator class yielding inputs.
+
+    Parameters
+    ----------
+        data_generator : gurih.data.data_generator.DataGenerator
+            DataGenerator class
+
+    Returns
+    -------
+        input_gen : generator
+            input sequence generator yielding tuples of input sequence and
+            the corresponding label
+    """
+    i = 0
+    while True:
+        item = data_generator.__getitem__(i)
+        inputs = item[0]
+        the_input = inputs['the_input']
+        the_label = inputs['the_labels']
+        out = [the_input, the_label]
+        if the_input.size == 0:
+            break
+        else:
+            i += 1
+            yield out
+
+
+def iterate_y_data_generator(data_generator):
+    """
+    Create generator function for DataGenerator class yielding inputs.
+
+    Parameters
+    ----------
+        data_generator : gurih.data.data_generator.DataGenerator
+            DataGenerator class
+
+    Returns
+    -------
+        input_gen : generator
+            input sequence generator yielding tuples of input sequence and
+            the corresponding label
+    """
+    i = 0
+    while True:
+        item = data_generator.__getitem__(i)
+        inputs = item[0]
+        the_label = inputs['the_labels']
+        if the_label.size == 0:
+            break
+        else:
+            i += 1
+            for y in the_label:
+                yield y
+
+
+def get_y_true_data_generator(idx_to_char_map, data_generator):
+    return [
+        ''.join([idx_to_char_map[c] for c in lbl])
+        for lbl in iterate_y_data_generator(data_generator)
+    ]
+
+
+def validate_dataset_dir(dataset_dir):
+    npzs = sorted(glob.glob(dataset_dir + "*.npz"))
+    txts = sorted(glob.glob(dataset_dir + "*.txt"))
+
+    # assert not empty
+    assert len(npzs) != 0, f"No npz found in {dataset_dir}."
+    assert len(txts) != 0, f"No txt found in {dataset_dir}."
+
+    # assert same length
+    assert len(npzs) == len(txts), f"Incosistent input length {len(npzs)} != {len(txts)}"
+
+    # assert same name conventions
+    for npz, txt in zip(npzs, txts):
+        assert npz[:-4] == txt[:-4], f"Found incosistent naming {npz[:-4]} and {txt[:-4]}"
+
+    print(f"{dataset_dir} checks passed.")

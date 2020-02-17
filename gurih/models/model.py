@@ -6,7 +6,9 @@ All script in this file is expected to be run from /project/notebooks/modelling 
 See notebook for example usage.
 """
 import os
+from contextlib import redirect_stdout
 
+import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras import Input
 from tensorflow.keras.models import Model, model_from_json
@@ -16,7 +18,7 @@ from tensorflow.keras.layers import Masking, Conv1D, Bidirectional, TimeDistribu
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
 from matplotlib import pyplot as plt
 
-from gurih.data.data_generator import DataGenerator
+from gurih.data.data_generator import DataGenerator, iterate_data_generator
 
 
 class _BaseModel:
@@ -175,6 +177,11 @@ class _BaseModel:
 
         self.callbacks = [cp_callback, es_callback, hist_callback]
 
+    def _save_summary(self):
+        with open(f"{self._doc_path}summary.txt", 'w') as f:
+            with redirect_stdout(f):
+                self.model.summary()
+
     def _show_summary(self):
         """Show summary of the model after calling __init__"""
         print(f"Model directory is set to {self._dir_path}")
@@ -250,7 +257,7 @@ class BaselineASRModel(_BaseModel):
         See 3.0-glg-baseline-model.ipynb for detailed example
     """
     def __init__(self, input_shape, vocab_len, filters=200, kernel_size=11, strides=2,
-                 padding='valid', n_lstm_units=200, **kwargs):
+                 padding='valid', n_lstm_units=200, training=True, **kwargs):
         super().__init__(**kwargs)
         self.vocab_len     = vocab_len
         self.input_shape   = input_shape
@@ -259,6 +266,7 @@ class BaselineASRModel(_BaseModel):
         self._strides      = strides
         self._padding      = padding
         self._n_lstm_units = n_lstm_units
+        self._training     = training
 
         self._create()
 
@@ -316,6 +324,10 @@ class BaselineASRModel(_BaseModel):
                                     'nlstm' + str(self._n_lstm_units),
                                     'ndense' + str(self.vocab_len)])
         tmp_model.summary()
+        if self._training is True:
+            with open(self._doc_path + "summary.txt", 'w') as f:
+                with redirect_stdout(f):
+                    tmp_model.summary()
 
     def compile(self, optimizer='adam', **kwargs):
         """
@@ -373,29 +385,87 @@ class BaselineASRModel(_BaseModel):
                                                 **kwargs)
         self._save_history_figure()
 
-    def evaluate(self, X_test, y_test):
-        raise NotImplementedError("evaluate() method not implemented for this model.")
-
-    def predict(self, X_test):
+    def evaluate(self, X_test, y_test=None, low_memory=False):
         """
-        Compute CTC Matrix of input.
+        Compute CTC loss and CTC matrix of given input sequence.
+
+        Parameters
+        ----------
+        X_test : gurih.data.data_generator.DataGenerator, numpy.ndarray
+            instance of custom DataGenerator or input MFCC sequence
+        y_test : numpy.ndarray()
+        low_memory : bool, [default=False]
+            if True, will return generator function
+        """
+        if isinstance(X_test, DataGenerator):
+            if y_test is not None:
+                raise Warning("Ignoring y_test as X_test is already DataGenerator instance.")
+            ctc_loss = self.model.predict(X_test)
+            ctc_matrix = self.predict(X_test, low_memory=low_memory)
+        else:
+            # Create data generator
+            inputs = [
+                X_test,  # the_input
+                y_test,  # the_labels
+                np.array([len(X_test[0])] * len(X_test)),  # input_length
+                np.array([len(y_test[0])] * len(y_test)),  # label_length
+            ]
+            ctc_loss = self.model.predict(inputs)
+            ctc_matrix = self.predict(X_test, low_memory=low_memory)
+
+        return ctc_loss, ctc_matrix
+
+    def predict(self, X_test, low_memory=False):
+        """
+        Compute CTC Loss of given input sequence.
 
         Parameters
         ----------
         X_test : np.array[shape=(m, max_seq_length, features)]
             m examples mfcc input of audio data
+        low_memory : bool, [default=False]
+            if True, will return generator function
 
-        Return
-        ------
+        Returns
+        -------
+        ctc_loss : np.array[shape=(m, 1)]
+            ctc loss of input sequence
         ctc_matrix : np.array[shape=(m, ctc_input_length, features)]
             ctc_matrix output of X_test
         """
         if isinstance(X_test, DataGenerator):
-            return self.model.predict(X_test)
-        else:
-            input_data = self.model.get_layer('the_input').input
-            y_pred = self.model.get_layer('ctc').input[0]
-            pred_func = K.function([input_data], [y_pred])
+            if low_memory is False:
+                dataset = list(iterate_data_generator(X_test))
+                X_test_arr = []
+                for batch in dataset:
+                    x_batch = batch[0]
+                    for x in x_batch:
+                        X_test_arr.append(x)
 
-            ctc_matrix = pred_func(X_test)
-            return ctc_matrix[0]  # get only the matrix
+                X_test_arr = np.array(X_test_arr)
+                ctc_matrix = self._predict(X_test_arr)
+            else:
+                dataset = iterate_data_generator(X_test)
+                ctc_matrix = self._predict_gen(dataset)
+        else:
+            if low_memory is False:
+                ctc_matrix = self._predict(X_test)
+            else:
+                ctc_matrix  = self._predict_gen(X_test)
+
+        return ctc_matrix
+
+    def _predict_gen(self, X_test):
+        for pair in X_test:
+            X = pair[0]
+            ctc_matrix = self._predict(X)
+            for ctc in ctc_matrix:
+                yield ctc
+
+    def _predict(self, X_test):
+        input_data = self.model.get_layer('the_input').input
+        y_pred = self.model.get_layer('ctc').input[0]
+        pred_func = K.function([input_data], [y_pred])
+        ctc_matrix = pred_func(X_test)[0]
+
+        return ctc_matrix

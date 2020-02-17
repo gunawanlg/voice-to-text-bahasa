@@ -4,6 +4,7 @@ import os
 import numpy as np
 from scipy.fftpack import dct
 from sklearn.base import TransformerMixin
+from sklearn.utils.validation import check_is_fitted
 
 __all__ = [
     'MFCCFeatureExtractor'
@@ -315,7 +316,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
     transform the audio signal data to a Mel's feature.
 
     >>> mfcc = MFCCFeatureExtractor()
-    >>> X = ["OSR_us_000_0010_8k.wav"]
+    >>> X = np.random.rand(1, 16000)
     >>> mfcc.fit(X)
     >>> mfcc.filter_bank_
     [[0.   0.5  1.   ... 0.   0.   0.  ]
@@ -378,65 +379,71 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
         Parameters
         ----------
-        X : dict
-            The data to transform
+        X : numpy.ndaray[shape=(m, sequence_length)]
+            input audio sequence
 
         Returns
         -------
-        mfcc_features_dict : dict
-            Dict of array of Mel features
+        features : numpy.ndarray[shape=(m, dim, total_mfcc_features)]
+            transform input audio sequence into mfcc features where:
+            total_mfcc_features =
+            dim =
         """
+        check_is_fitted(self, 'filter_bank_')
 
-        if not self.low_memory:
-            mfcc_features_dict = {}
+        if self.low_memory is True:
+            return self._transform_gen(X)
+        else:
+            if self.write_output:
+                processed_data_directory  = self.output_dir
+                # date = datetime.today().strftime("%Y%m%d")
+                if not os.path.exists(processed_data_directory):
+                    os.mkdir(processed_data_directory)
 
+            mfcc_signals = []
+            for signal in X:
+                features = self._transform_single(signal)
+                mfcc_signals.append(features)
+
+            return np.array(mfcc_signals)
+
+    def fit_transform(self, X, y=None):
+        return self.fit(X).transform(X)
+
+    def _transform_gen(self, X):
         if self.write_output:
             processed_data_directory  = self.output_dir
             # date = datetime.today().strftime("%Y%m%d")
             if not os.path.exists(processed_data_directory):
                 os.mkdir(processed_data_directory)
 
-        for filename in X.keys():
-            signal = X[filename]
+        for signal in X:
+            features = self._transform_single(signal)
 
-            signal = super()._apply_pre_emphasis(signal, self.pre_emphasis_coeff)
+            yield features
 
-            frames = super()._frame_signal(signal, self.sample_rate, self.frame_size, self.frame_stride)
+    def _transform_single(self, x):
+        """Tranform single signal input."""
+        signal = super()._apply_pre_emphasis(x, self.pre_emphasis_coeff)
+        frames = super()._frame_signal(signal, self.sample_rate, self.frame_size, self.frame_stride)
+        spec_power = super()._apply_fourier_transform(frames, self.NFFT)
 
-            spec_power = super()._apply_fourier_transform(frames, self.NFFT)
+        energy = np.sum(spec_power, 1)
+        energy = np.where(energy == 0, np.finfo(float).eps, energy)
 
-            energy = np.sum(spec_power, 1)
-            energy = np.where(energy == 0, np.finfo(float).eps, energy)
+        filter_bank_ = self.filter_bank_
+        features = np.dot(spec_power, filter_bank_.T)
+        features = np.where(features == 0, np.finfo(float).eps, features)
+        features = np.log(features)
+        features = dct(features, type=self.dct_type, axis=1, norm=self.dct_norm)[:, :self.cep_num]
+        features = super()._apply_lifter(features, self.cep_lifter)
 
-            filter_bank_ = self.filter_bank_
+        if self.append_energy:
+            features[:, 0] = np.log(energy)
 
-            features = np.dot(spec_power, filter_bank_.T)
-            features = np.where(features == 0, np.finfo(float).eps, features)
+        if self.append_delta:
+            delta_features = super()._compute_delta(features)
+            delta_features_delta = super()._compute_delta(delta_features)
+            features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
 
-            features = np.log(features)
-            features = dct(features, type=self.dct_type, axis=1, norm=self.dct_norm)[:, :self.cep_num]
-
-            features = super()._apply_lifter(features, self.cep_lifter)
-
-            if self.append_energy:
-                features[:, 0] = np.log(energy)
-
-            if self.append_delta:
-                delta_features = super()._compute_delta(features)
-                delta_features_delta = super()._compute_delta(delta_features)
-                features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
-
-            if not self.low_memory:
-                mfcc_features_dict[filename] = features
-
-            if self.write_output:
-                npz_filename = f"{filename}.npz"
-                np.savez(f"{processed_data_directory}/{npz_filename}", features)
-
-        if not self.low_memory:
-            return mfcc_features_dict
-        else:
-            return 0
-
-    def fit_transform(self, X, y=None):
-        return self.fit(X).transform(X)
+        return features

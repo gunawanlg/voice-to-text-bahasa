@@ -1,11 +1,10 @@
 import numpy as np
-import tensorflow.keras.backend as K
 
 
-def wer(y_true, y_pred, write_html=False):
+def wer_and_cer(y_true, y_pred, html_filename=None):
     """
-    Given two list of strings how many word error rate(insert, delete or
-    substitution).
+    Calculate both word error rate and character error rate for given strings
+    or list of strings.
 
     Parameters
     ----------
@@ -13,7 +12,84 @@ def wer(y_true, y_pred, write_html=False):
         references, ground truth label string
     y_pred : list of str, str
         hypothesis, prediction from model
-    write_html : bool, optional
+    html_filename : str, optional
+        write output html or not. Only valid if given str input
+
+   Returns
+    -------
+    out : dict
+        dictionary contain wer and cer values with keys ['wer', 'cer']
+    """
+    if (isinstance(y_true, str) & isinstance(y_pred, str)):
+        wer = __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=html_filename)
+        cer = __single_wer(list(y_true), list(y_pred), html_filename=html_filename)
+    else:
+        wer = 0
+        cer = 0
+        for r, h in zip(y_true, y_pred):
+            wer += __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=None)
+            cer += __single_wer(list(r), list(h), html_filename=None)
+        wer /= len(y_pred)
+        cer /= len(y_pred)
+
+    return {"wer": wer, "cer": cer}
+
+
+def cer(y_true, y_pred, html_filename=None):
+    """
+    Given to list of strings how many character error rate (insertion, deletion
+    , and substitution)
+
+    Parameters
+    ----------
+    y_true : list of str, str
+        references, ground truth label string
+    y_pred : list of str, str
+        hypothesis, prediction from model
+    html_filename : str, optional
+        write output html or not. Only valid if given str input
+
+    Returns
+    -------
+    cer : float
+        Word error rate number of (substitution + insertion + deletion) divided
+        by number of words in references.
+
+    Examples
+    --------
+    >>> y_true = ['aku dan dia', 'dia dan kamu', 'kamu dan aku']
+    >>> y_pred = ['aky dan dia', 'diaa dan kamu', 'kamu aku']
+    >>> cer(y_true, y_pred)
+    16.919191919191917
+
+    >>> y_true = 'aku, kamu, dan dia'
+    >>> y_pred = 'ak, dia, dan'
+    >>> cer(y_true, y_pred)
+    50.0
+    """
+    if (isinstance(y_true, str) & isinstance(y_pred, str)):
+        result = __single_wer(list(y_true), list(y_pred), html_filename=html_filename)
+    else:
+        result = 0
+        for r, h in zip(y_true, y_pred):
+            result += __single_wer(list(r), list(h), html_filename=None)
+        result /= len(y_pred)
+
+    return result
+
+
+def wer(y_true, y_pred, html_filename=None):
+    """
+    Given two list of strings how many word error rate (insertion, deletion,
+    and substitution)
+
+    Parameters
+    ----------
+    y_true : list of str, str
+        references, ground truth label string
+    y_pred : list of str, str
+        hypothesis, prediction from model
+    html_filename : str, optional
         write output html or not. Only valid if given str input.
 
     Returns
@@ -35,50 +111,14 @@ def wer(y_true, y_pred, write_html=False):
     50.0
     """
     if (isinstance(y_true, str) & isinstance(y_pred, str)):
-        result = __single_wer(y_true.split(' '), y_pred.split(' '), write_html=write_html)
+        result = __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=html_filename)
     else:
         result = 0
         for r, h in zip(y_true, y_pred):
-            result += __single_wer(r.split(' '), h.split(' '), write_html=False)
+            result += __single_wer(r.split(' '), h.split(' '), html_filename=None)
         result /= len(y_pred)
 
     return result
-
-
-def ctc_decode(ctc_matrix, idx_to_char_map, **kwargs):
-    """
-    Decode ctc matrix output into human readable text using
-    tensorflow.keras.backend.ctc_decode
-
-    Parameters
-    ----------
-    ctc_matrix : np.array(shape=[m, max_sequence_length, vocab_len])
-        output from ASR model where m denotes number of samples
-    idx_to_char_map : dict
-        map index output to character, including blank token
-
-    Returns
-    -------
-    y_preds : list of str
-        string prediction from the model
-    """
-    ctc_matrix_decoded = K.ctc_decode(ctc_matrix,
-                                      [ctc_matrix.shape[1]]*ctc_matrix.shape[0],
-                                      **kwargs)
-
-    ctc_decoded, _ = ctc_matrix_decoded
-    ctc_decoded = ctc_decoded[0].numpy()
-
-    y_preds = []
-    for y_pred in ctc_decoded:
-        output_text = ""
-        for idx in y_pred:
-            if idx in idx_to_char_map:
-                output_text += idx_to_char_map[idx]
-        output_text = output_text.strip()
-        y_preds.append(output_text)
-
-    return y_preds
 
 
 class CharMap:
@@ -124,7 +164,7 @@ class CharMap:
         return len(self.CHAR_TO_IDX_MAP) - 1
 
 
-def __single_wer(r, h, write_html):
+def __single_wer(r, h, html_filename=None):
     d = np.zeros((len(r) + 1) * (len(h) + 1), dtype=np.uint16)
     d = d.reshape((len(r) + 1, len(h) + 1))
     for i in range(len(r) + 1):
@@ -145,13 +185,13 @@ def __single_wer(r, h, write_html):
                 d[i][j] = min(substitution, insertion, deletion)
     result = float(d[len(r)][len(h)]) / len(r) * 100
 
-    if write_html:
+    if html_filename is not None:
         x = len(r)
         y = len(h)
 
         html = '<html><body><head><meta charset="utf-8"></head>' \
-            '<style>.g{background-color:#0080004d}.r{background-color:#ff00004d}.\
-            y{background-color:#ffa50099}</style>'
+            '<style>.g{background-color:#0080004d}.r{background-color:#ff00004d}.' \
+            'y{background-color:#ffa50099}</style>'
 
         while True:
             if x == 0 or y == 0:
@@ -177,7 +217,7 @@ def __single_wer(r, h, write_html):
 
         html = html + '</body></html>'
 
-        with open('diff.html', 'w', encoding='utf8') as f:
+        with open(html_filename, 'w', encoding='utf8') as f:
             f.write(html)
 
     return result

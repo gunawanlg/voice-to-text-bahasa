@@ -2,6 +2,7 @@ import os
 import json
 from datetime import datetime
 
+import numpy as np
 import librosa
 from sklearn.base import TransformerMixin
 
@@ -72,6 +73,8 @@ class AudioNormalizer(TransformerMixin):
             Dictionary of signal and corresponding ids (if encode=True) or
             filenames
         """
+        if X.ndim != 1:
+            raise ValueError("Required input shape to be in (m, ).")
 
         # Create a dictionary to store key-value pairs of
         signal_dict = {}
@@ -82,14 +85,17 @@ class AudioNormalizer(TransformerMixin):
 
         processed_data_directory  = self.output_dir
         date = datetime.today().strftime("%Y%m%d")
-
-        if not os.path.exists(processed_data_directory):
-            os.mkdir(processed_data_directory)
-
+        
+        signals = []
         for i, filename in enumerate(X):
             signal, sample_rate = librosa.load(filename, sr=self.sample_rate, mono=self.mono)
+            if signal.ndim == 1:
+                signal = np.expand_dims(signal, axis=0)
 
             if self.write_audio_output:
+                if not os.path.exists(processed_data_directory):
+                    os.mkdir(processed_data_directory)
+
                 filename = filename.split("/")[-1]
 
                 # Generate filename consisting of {output_dir}_{original_file_name}_{date}_
@@ -104,9 +110,12 @@ class AudioNormalizer(TransformerMixin):
             else:
                 filename = filename.replace(".mp3", "")
                 signal_dict[filename] = signal
+                signals.append(signal)
 
         # Write the .json file to store the corresponding ids and filenames
         if self.encode:
             with open(f"{self.output_dir}/{date}_audio_encoding.json", "w") as f:
                 json.dump(id_dict, f)
-        return signal_dict
+
+        # return signal_dict
+        return signals
