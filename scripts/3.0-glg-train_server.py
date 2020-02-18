@@ -1,18 +1,11 @@
 import argparse
 
-def train(args):    
-    import sys
-    import glob
 
-    import numpy as np
-    import pandas as pd
+def train(args):
     # from IPython.core.display import display, HTML
-    import tensorflow as tf
-    import tensorflow.keras.backend as K
-
     from gurih.data.data_generator import DataGenerator
     from gurih.models.model import BaselineASRModel
-    from gurih.models.model_utils import CharMap, ctc_decode, wer
+    from gurih.models.model_utils import CharMap
 
     # Training parameters
     BATCH_SIZE = args.batch_size
@@ -27,7 +20,7 @@ def train(args):
     train_dir = args.train_dir
     valid_dir = args.valid_dir
 
-    ### START TRAINING ###
+    # START TRAINING #
     CHAR_TO_IDX_MAP = CharMap.CHAR_TO_IDX_MAP
 
     BaselineASR = BaselineASRModel(input_shape=(MAX_SEQ_LENGTH, MFCCS), vocab_len=len(CharMap()))
@@ -45,18 +38,19 @@ def train(args):
                                     batch_size=BATCH_SIZE)
 
     validation_generator = DataGenerator(input_dir=valid_dir,
-                                        max_seq_length=MAX_SEQ_LENGTH,
-                                        max_label_length=MAX_LABEL_LENGTH,
-                                        ctc_input_length=CTC_INPUT_LENGTH,
-                                        char_to_idx_map=CHAR_TO_IDX_MAP,
-                                        batch_size=BATCH_SIZE)
+                                         max_seq_length=MAX_SEQ_LENGTH,
+                                         max_label_length=MAX_LABEL_LENGTH,
+                                         ctc_input_length=CTC_INPUT_LENGTH,
+                                         char_to_idx_map=CHAR_TO_IDX_MAP,
+                                         batch_size=BATCH_SIZE)
 
-    BaselineASR._callbacks(min_delta=1e-4, patience=5)                            
+    BaselineASR._callbacks(min_delta=1e-4, patience=5)
 
     BaselineASR.fit_generator(train_generator=train_generator,
-                            validation_generator=validation_generator,
-                            epochs=EPOCHS)
-    ## END TRAINING ###
+                              validation_generator=validation_generator,
+                              epochs=EPOCHS)
+    # END TRAINING #
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='train_server',
@@ -67,7 +61,7 @@ if __name__ == "__main__":
                         help='Number of batch size. print ')
     parser.add_argument('--epochs', type=int, default=1000,
                         help='Number of epochs to train.')
-    
+
     # Preprocess parameters
     parser.add_argument('--max_seq_length', type=int, default=2500,
                         help='Maximum input sequence length.')
