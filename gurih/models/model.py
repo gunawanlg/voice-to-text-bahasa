@@ -446,7 +446,7 @@ class BaselineASRModel(_BaseModel):
                 ctc_matrix = self._predict(X_test_arr)
             else:
                 dataset = iterate_data_generator(X_test)
-                ctc_matrix = self._predict_gen(dataset)
+                ctc_matrix = self._predict_data_gen(dataset)
         else:
             if low_memory is False:
                 ctc_matrix = self._predict(X_test)
@@ -456,6 +456,13 @@ class BaselineASRModel(_BaseModel):
         return ctc_matrix
 
     def _predict_gen(self, X_test):
+        for x in X_test:
+            x = np.expand_dims(x, axis=0)
+            ctc_matrix = self._predict(x)
+            for ctc in ctc_matrix:
+                yield ctc
+
+    def _predict_data_gen(self, X_test):
         for pair in X_test:
             X = pair[0]
             ctc_matrix = self._predict(X)

@@ -1,4 +1,3 @@
-import inspect
 import unittest
 
 import numpy as np
@@ -25,51 +24,35 @@ class TranscriptorTest(unittest.TestCase):
             "keturunan ham ialah kush, misraim, put dan kanaan."
         ]
 
-        cls.model = BaselineASRModel(input_shape=(1000, 39), vocab_len=29, training=False)
-        cls.model.compile()
+        cls._model = BaselineASRModel(input_shape=(1000, 39), vocab_len=29, training=False)
+        cls._model.compile()
 
     @classmethod
     def tearDownClass(cls):
         del cls._X
         del cls._y
-        del cls.model
+        del cls._model
 
-    def test_fit_predict_with_y(self):
-        transcriptor = CTCDecoder(self.model, CharMap.IDX_TO_CHAR_MAP)
-        transcriptor.fit(self._X, self._y)
-        y_pred = transcriptor.predict(self._X)
-
-        self.assertEqual(len(y_pred), len(self._y))
-        self.assertIsNotNone(transcriptor.wer_)
-
-    def test_fit_predict_without_y(self):
-        transcriptor = CTCDecoder(self.model, CharMap.IDX_TO_CHAR_MAP)
-        transcriptor.fit(self._X)
-        y_pred = transcriptor.predict(self._X)
+    def test_predict_non_generator(self):
+        ctc_matrix = self._model.predict(self._X)
+        decoder = CTCDecoder(CharMap.IDX_TO_CHAR_MAP)
+        decoder.fit(ctc_matrix)
+        y_pred = decoder.predict(ctc_matrix)
 
         self.assertEqual(len(y_pred), len(self._y))
 
-    def test_fit_predict_low_memory_with_y(self):
-        transcriptor = CTCDecoder(self.model, CharMap.IDX_TO_CHAR_MAP, True)
-        transcriptor.fit(self._X, self._y)
-        y_pred = transcriptor.predict(self._X)
+    def test_predict_generator(self):
+        ctc_matrix = self._model.predict(self._X, low_memory=True)
+        decoder = CTCDecoder(CharMap.IDX_TO_CHAR_MAP)
+        decoder.fit(ctc_matrix)
+        y_pred = decoder.predict(ctc_matrix)
 
-        self.assertTrue(inspect.isgenerator(transcriptor.ctc_matrix_))
-        self.assertEqual(len(y_pred), len(self._y))
-        self.assertIsNotNone(transcriptor.wer_)
-
-    def test_fit_predict_low_memory_without_y(self):
-        transcriptor = CTCDecoder(self.model, CharMap.IDX_TO_CHAR_MAP, True)
-        transcriptor.fit(self._X)
-        y_pred = transcriptor.predict(self._X)
-
-        self.assertTrue(inspect.isgenerator(transcriptor.ctc_matrix_))
         self.assertEqual(len(y_pred), len(self._y))
 
     def test_predict_without_fit(self):
         with self.assertRaises(NotFittedError):
-            transcriptor = CTCDecoder(self.model, CharMap.IDX_TO_CHAR_MAP)
-            transcriptor.predict(self._X)
+            decoder = CTCDecoder(CharMap.IDX_TO_CHAR_MAP)
+            decoder.predict(self._X)
 
 
 if __name__ == "__main__":

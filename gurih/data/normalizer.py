@@ -82,7 +82,7 @@ class AudioNormalizer(TransformerMixin):
 
         processed_data_directory  = self.output_dir
         date = datetime.today().strftime("%Y%m%d")
-        
+
         signals = []
         for i, filename in enumerate(X):
             signal, sample_rate = librosa.load(filename, sr=self.sample_rate, mono=self.mono)
