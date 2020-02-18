@@ -44,7 +44,7 @@ class CTCDecoder(BaseEstimator):
         y_pred : list of str
             output transcription/
         """
-        check_is_fitted(self)
+        check_is_fitted(self, 'X_')
         if inspect.isgenerator(X):
             y_pred = []
             for x in X:
