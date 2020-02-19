@@ -386,8 +386,9 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         -------
         features : numpy.ndarray[shape=(m, dim, total_mfcc_features)]
             transform input audio sequence into mfcc features where:
-            total_mfcc_features =
-            dim =
+            total_mfcc_features = cep_num * 3 if append_delta = True,
+                cep_num otherwise
+            dim = 1 + ⌈|signal_length - (frame_size * sample_rate)| / frame_step⌉
         """
         check_is_fitted(self, 'filter_bank_')
 
