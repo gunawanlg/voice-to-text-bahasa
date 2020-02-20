@@ -391,6 +391,9 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         """
         check_is_fitted(self, 'filter_bank_')
 
+        if X.ndim == 3:  # (m, chunks, frames)
+            X = X[0]
+
         if self.low_memory is True:
             return self._transform_gen(X)
         else:

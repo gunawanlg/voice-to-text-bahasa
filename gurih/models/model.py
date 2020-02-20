@@ -268,8 +268,6 @@ class BaselineASRModel(_BaseModel):
         self._n_lstm_units = n_lstm_units
         self._training     = training
 
-        self._create()
-
     def _create(self):
         """Create the baseline ASR with CTC Model"""
         def _ctc_lambda_func(args):
@@ -339,6 +337,7 @@ class BaselineASRModel(_BaseModel):
             optimizer string or class from keras.optimizers, defaulting to:
                 Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
         """
+        self._create()
         self.model.compile(loss={'ctc': lambda y_true, y_pred: y_pred},
                            optimizer=optimizer,
                            **kwargs)
