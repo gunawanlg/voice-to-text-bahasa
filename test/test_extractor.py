@@ -11,6 +11,7 @@ class IntegrationTest(unittest.TestCase):
         self.mfcc_default = MFCCFeatureExtractor()
         self.mfcc_39_coefficients = MFCCFeatureExtractor(append_delta=True)
         self.signal, _ = librosa.load("test_data/test_20kb.wav", sr=16000)
+        self.signal_training = {"0": self.signal}
 
     def test_preemphasis(self):
         """
@@ -38,11 +39,21 @@ class IntegrationTest(unittest.TestCase):
 
         self.assertEqual(framed_signal.shape, (70, 200))
 
-    def test_mffc_single(self):
+    def test_mfcc_single(self):
         """
         Test if the extracted features' shape complies the shape
         """
         extracted_features = self.mfcc_default.fit_transform([self.signal])
+
+        self.assertEqual(extracted_features.shape, (1, 34, 13))
+
+    def test_is_training(self):
+        """
+        Test if MFCC returns the right output if the param `is_training` is
+        True
+        """
+        mfcc = MFCCFeatureExtractor(is_training=True)
+        extracted_features = mfcc.fit_transform(self.signal_training)
 
         self.assertEqual(extracted_features.shape, (1, 34, 13))
 

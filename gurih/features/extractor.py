@@ -427,7 +427,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
                         mfcc_signals.append(features)
 
                     if self.write_output:
-                        npz_filename = f"{filename}.npz"
+                        npz_filename = f"{i}.npz"
                         np.savez(f"{processed_data_directory}/{npz_filename}", features)
 
             if not self.ignore_output:
