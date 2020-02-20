@@ -5,7 +5,7 @@ import librosa
 from gurih.features.extractor import MFCCFeatureExtractor
 
 
-class IntegrationTest(unittest.TestCase):
+class ExtractorTest(unittest.TestCase):
 
     def setUp(self):
         self.mfcc_default = MFCCFeatureExtractor()
