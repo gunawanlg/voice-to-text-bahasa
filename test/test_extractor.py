@@ -47,6 +47,15 @@ class ExtractorTest(unittest.TestCase):
 
         self.assertEqual(extracted_features.shape, (1, 34, 13))
 
+    def test_mfcc_39_coefficients(self):
+        """
+        Test if the extracted features have 39 coefficients if the delta
+        is turned on
+        """
+        extracted_features = self.mfcc_39_coefficients.fit_transform([self.signal])
+
+        self.assertEqual(extracted_features.shape, (1, 34, 39))
+
     def test_is_training(self):
         """
         Test if MFCC returns the right output if the param `is_training` is
