@@ -60,6 +60,9 @@ class CTCDecoder(BaseEstimator):
 
         return y_pred
 
+    def fit_predict(self, X, y=None):
+        return self.fit(X).predict(X)
+
     def _ctc_decode(self, ctc_matrix, idx_to_char_map, **kwargs):
         """
         Decode ctc matrix output into human readable text using
