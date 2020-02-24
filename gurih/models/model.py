@@ -403,10 +403,11 @@ class BaselineASRModel(_BaseModel):
             ctc_matrix = self.predict(X_test, low_memory=low_memory)
         else:
             # Create data generator
+            CTC_INPUT_LENGTH = self.model.get_layer('the_output').output.shape[1]
             inputs = [
                 X_test,  # the_input
                 y_test,  # the_labels
-                np.array([len(X_test[0])] * len(X_test)),  # input_length
+                np.array([CTC_INPUT_LENGTH] * len(X_test)),  # input_length
                 np.array([len(y_test[0])] * len(y_test)),  # label_length
             ]
             ctc_loss = self.model.predict(inputs)
