@@ -1,6 +1,7 @@
 import unittest
 
 import librosa
+import numpy as np
 
 from gurih.features.extractor import MFCCFeatureExtractor
 
@@ -43,7 +44,7 @@ class ExtractorTest(unittest.TestCase):
         """
         Test if the extracted features' shape complies the shape
         """
-        extracted_features = self.mfcc_default.fit_transform([self.signal])
+        extracted_features = self.mfcc_default.fit_transform(np.array(self.signal))
 
         self.assertEqual(extracted_features.shape, (1, 34, 13))
 
@@ -52,7 +53,7 @@ class ExtractorTest(unittest.TestCase):
         Test if the extracted features have 39 coefficients if the delta
         is turned on
         """
-        extracted_features = self.mfcc_39_coefficients.fit_transform([self.signal])
+        extracted_features = self.mfcc_39_coefficients.fit_transform(np.array(self.signal))
 
         self.assertEqual(extracted_features.shape, (1, 34, 39))
 
