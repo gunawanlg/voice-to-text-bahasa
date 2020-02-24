@@ -66,6 +66,32 @@ class ExtractorTest(unittest.TestCase):
 
         self.assertEqual(extracted_features.shape, (1, 34, 13))
 
+    def test_converter(self):
+        """
+        Test if the converter works as it's supposed to
+        """
+        FREQ = 100
+
+        mel = round(self.mfcc_default._convert_hz_to_mel(FREQ))
+        hz = round(self.mfcc_default._convert_mel_to_hz(mel))
+
+        self.assertEqual(mel, 150)
+        self.assertEqual(hz, FREQ)
+
+    def test_filter_bank(self):
+        """
+        Test the default output shape of the filter bank
+        """
+
+        NFFT = 512
+        FILTER_NUM = 20
+
+        filter_bank = self.mfcc_default._get_filter_banks(filter_num=FILTER_NUM, NFFT=NFFT)
+        filter_bank_default = self.mfcc_default._get_filter_banks()
+
+        self.assertEqual(filter_bank.shape, (20, 257))
+        self.assertTrue(filter_bank, filter_bank_default)
+
 
 if __name__ == "__main__":
     unittest.main()
