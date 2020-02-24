@@ -403,8 +403,8 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
             if not os.path.exists(processed_data_directory):
                 os.mkdir(processed_data_directory)
               
-        if X.ndim == 3:  # (m, chunks, frames)
-            X = X[0]
+        # if X.ndim == 3:  # (m, chunks, frames)
+        #     X = X[0]
 
         if self.low_memory is True:
             return self._transform_gen(X)
