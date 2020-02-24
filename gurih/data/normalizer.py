@@ -23,7 +23,7 @@ class AudioNormalizer(TransformerMixin):
         `False` means stereo.
 
     write_audio_output : bool, default=False
-        Store the Mel features to pickle.
+        Store the normalized audio data.
 
     output_dir : string, default='../data/processed/normalized'
         Output directory of where the normalized audio data
@@ -40,7 +40,7 @@ class AudioNormalizer(TransformerMixin):
     transform the raw audio data to a normalized audio signal data for the
     next preprocessing pipeline.
 
-    >>> normalizer = AudioNormalizer()
+    >>> normalizer = AudioNormalizer(is_training=True, encode=True)
     >>> X = ["OSR_us_000_0010_8k.wav", "OSR_us_000_0011_8k.wav"]
     >>> normalizer.transform(X)
     {0: array([0., 0., 0., ..., 0., 0., 0.], dtype=float32), 1:
@@ -124,4 +124,4 @@ class AudioNormalizer(TransformerMixin):
         if self.is_training:
             return signal_dict
         else:
-            return signals
+            return np.array(signals)

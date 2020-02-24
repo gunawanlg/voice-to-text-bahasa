@@ -90,7 +90,7 @@ class ExtractorTest(unittest.TestCase):
         filter_bank_default = self.mfcc_default._get_filter_banks()
 
         self.assertEqual(filter_bank.shape, (20, 257))
-        self.assertTrue(filter_bank, filter_bank_default)
+        self.assertEqual(filter_bank_default.shape, (20, 257))
 
 
 if __name__ == "__main__":
