@@ -164,7 +164,7 @@ class CharMap:
         return len(self.CHAR_TO_IDX_MAP) - 1
 
 
-def __single_wer(r, h, html_filename=None):
+def __single_wer(r, h, html_filename=None, return_stats=False):
     d = np.zeros((len(r) + 1) * (len(h) + 1), dtype=np.uint16)
     d = d.reshape((len(r) + 1, len(h) + 1))
     for i in range(len(r) + 1):
@@ -185,39 +185,53 @@ def __single_wer(r, h, html_filename=None):
                 d[i][j] = min(substitution, insertion, deletion)
     result = float(d[len(r)][len(h)]) / len(r) * 100
 
+    # Backtrace
+    x = len(r)
+    y = len(h)
+
+    stats = {}
+    stats['ok'] = 0
+    stats['sub'] = 0
+    stats['ins'] = 0
+    stats['del'] = 0
+
+    html = '<html><body><head><meta charset="utf-8"></head>' \
+        '<style>.g{background-color:#0080004d}.r{background-color:#ff00004d}.' \
+        'y{background-color:#ffa50099}</style>'
+
+    while True:
+        if x == 0 or y == 0:
+            break
+
+        if r[x - 1] == h[y - 1]:
+            stats['ok'] += 1
+            x = x - 1
+            y = y - 1
+            html = '%s ' % h[y] + html
+        elif d[x][y] == d[x - 1][y - 1] + 1:    # substitution
+            stats['sub'] += 1
+            x = x - 1
+            y = y - 1
+            html = '<span class="y">%s(%s)</span> ' % (h[y], r[x]) + html
+        elif d[x][y] == d[x - 1][y] + 1:        # deletion
+            stats['del'] += 1
+            x = x - 1
+            html = '<span class="r">%s</span> ' % r[x] + html
+        elif d[x][y] == d[x][y - 1] + 1:        # insertion
+            stats['ins'] += 1
+            y = y - 1
+            html = '<span class="g">%s</span> ' % h[y] + html
+        else:
+            raise ValueError('\nWe got an error.')
+            break
+
+    html = html + '</body></html>'
+
     if html_filename is not None:
-        x = len(r)
-        y = len(h)
-
-        html = '<html><body><head><meta charset="utf-8"></head>' \
-            '<style>.g{background-color:#0080004d}.r{background-color:#ff00004d}.' \
-            'y{background-color:#ffa50099}</style>'
-
-        while True:
-            if x == 0 or y == 0:
-                break
-
-            if r[x - 1] == h[y - 1]:
-                x = x - 1
-                y = y - 1
-                html = '%s ' % h[y] + html
-            elif d[x][y] == d[x - 1][y - 1] + 1:    # substitution
-                x = x - 1
-                y = y - 1
-                html = '<span class="y">%s(%s)</span> ' % (h[y], r[x]) + html
-            elif d[x][y] == d[x - 1][y] + 1:        # deletion
-                x = x - 1
-                html = '<span class="r">%s</span> ' % r[x] + html
-            elif d[x][y] == d[x][y - 1] + 1:        # insertion
-                y = y - 1
-                html = '<span class="g">%s</span> ' % h[y] + html
-            else:
-                raise ValueError('\nWe got an error.')
-                break
-
-        html = html + '</body></html>'
-
         with open(html_filename, 'w', encoding='utf8') as f:
             f.write(html)
 
-    return result
+    if return_stats is True:
+        return result, stats
+    else:
+        return result

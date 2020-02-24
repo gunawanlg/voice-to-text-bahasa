@@ -66,10 +66,9 @@ class Splitter(TransformerMixin):
                     if (seq_length - self.strides) > 0:  # can get at least two chunks
                         out.append(self.split(x))
                     else:
-                        warnings.warn(f"Found input shape {x.shape[0]} <= \
-                                        {self.max_frame_length}, skipping \
-                                        split.")
-                        out.append(x)
+                        warnings.warn(f"Found input shape {x.shape[0]} <="
+                                      f" {self.max_frame_length}, skipping split.")
+                        out.append(self.split(x))
                 else:
                     out.append(self.split(x))
 
@@ -85,9 +84,8 @@ class Splitter(TransformerMixin):
                 if (seq_length - self.strides) > 0:  # can get at least two chunks
                     yield self.split(x)
                 else:
-                    warnings.warn(f"Found input shape {x.shape[0]} <= \
-                                    {self.max_frame_length}, skipping \
-                                    split.")
+                    warnings.warn(f"Found input shape {x.shape[0]} <="
+                                  f" {self.max_frame_length}, skipping split")
                     yield x
             else:
                 yield self.split(x)
@@ -102,8 +100,8 @@ class Splitter(TransformerMixin):
                     chunk += padding
             chunks.append(chunk)
 
-        msg = f"Output shape mismatch {len(chunks)} and \
-                {math.ceil(x.shape[0] / self.max_frame_length)}"
+        msg = f"Output shape mismatch {len(chunks)} and" \
+              f" {math.ceil(x.shape[0] / self.max_frame_length)}"
         assert len(chunks) == (math.ceil(x.shape[0] / self.strides)), msg
 
         return chunks
