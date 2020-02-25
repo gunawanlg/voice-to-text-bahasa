@@ -294,7 +294,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
     dct_norm : str, default="ortho"
         Normalization mode of the dct.
 
-    append_energy:
+    append_energy: bool, default=True
         Replace the zeroth cepstral coeff with the energy.
 
     append_delta : bool, default=False
@@ -331,7 +331,9 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
     def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26,
                  cep_num=13, NFFT=512, low_freq=0, high_freq=None, pre_emphasis_coeff=0.97,
                  cep_lifter=22, dct_type=2, dct_norm="ortho", append_energy=True,
-                 append_delta=False, low_memory=False, write_output=True, output_dir="."):
+                 append_delta=False, low_memory=False, write_output=True, ignore_output=False,
+                 output_dir=".", is_training=False):
+
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
@@ -350,7 +352,9 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
         self.low_memory = low_memory
         self.write_output = write_output
+        self.ignore_output = ignore_output
         self.output_dir = output_dir
+        self.is_training = is_training
 
     def fit(self, X, y=None):
         """
@@ -386,40 +390,57 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         -------
         features : numpy.ndarray[shape=(m, dim, total_mfcc_features)]
             transform input audio sequence into mfcc features where:
-            total_mfcc_features =
-            dim =
+            total_mfcc_features = cep_num * 3 if append_delta = True,
+                cep_num otherwise
+            dim = 1 + ⌈|signal_length - (frame_size * sample_rate)| /
+                (frame_stride * sample_rate)⌉
         """
         check_is_fitted(self, 'filter_bank_')
 
-        if X.ndim == 3:  # (m, chunks, frames)
-            X = X[0]
-
-        if self.low_memory is True:
-            return self._transform_gen(X)
-        else:
-            if self.write_output:
-                processed_data_directory  = self.output_dir
-                # date = datetime.today().strftime("%Y%m%d")
-                if not os.path.exists(processed_data_directory):
-                    os.mkdir(processed_data_directory)
-
-            mfcc_signals = []
-            for signal in X:
-                features = self._transform_single(signal)
-                mfcc_signals.append(features)
-
-            return np.array(mfcc_signals)
-
-    def fit_transform(self, X, y=None):
-        return self.fit(X).transform(X)
-
-    def _transform_gen(self, X):
         if self.write_output:
             processed_data_directory  = self.output_dir
             # date = datetime.today().strftime("%Y%m%d")
             if not os.path.exists(processed_data_directory):
                 os.mkdir(processed_data_directory)
 
+        if not self.is_training:
+            if X.ndim == 3:  # (m, chunks, frames)
+                X = X[0]
+
+        if self.low_memory is True:
+            return self._transform_gen(X)
+        else:
+            if not self.ignore_output:
+                mfcc_signals = []
+
+            if self.is_training:
+                for filename, signal in X.items():
+                    features = self._transform_single(signal)
+
+                    if not self.ignore_output:
+                        mfcc_signals.append(features)
+
+                    if self.write_output:
+                        npz_filename = f"{filename}.npz"
+                        np.savez(f"{processed_data_directory}/{npz_filename}", features)
+            else:
+                for i, signal in enumerate(X):
+                    features = self._transform_single(signal)
+
+                    if not self.ignore_output:
+                        mfcc_signals.append(features)
+
+                    if self.write_output:
+                        npz_filename = f"{i}.npz"
+                        np.savez(f"{processed_data_directory}/{npz_filename}", features)
+
+            if not self.ignore_output:
+                return np.array(mfcc_signals)
+
+    def fit_transform(self, X, y=None):
+        return self.fit(X).transform(X)
+
+    def _transform_gen(self, X):
         for signal in X:
             features = self._transform_single(signal)
 
