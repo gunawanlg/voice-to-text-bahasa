@@ -85,7 +85,7 @@ class DataGeneratorUtilsTest(unittest.TestCase):
         gen_list = list(gen)
         gen_list = [seq.strip() for seq in gen_list]  # remove the padding
 
-        txts = glob.glob(self.input_dir+"*.txt")
+        txts = sorted(glob.glob(self.input_dir+"*.txt"))
         y_true = []
         for txt in txts:
             with open(txt, 'r') as f:

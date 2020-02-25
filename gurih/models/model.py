@@ -173,7 +173,7 @@ class _BaseModel:
                                     mode='min')
 
         hist_path = os.path.abspath(self._doc_path + self.name + '.csv')
-        hist_callback = CSVLogger(hist_path)
+        hist_callback = CSVLogger(hist_path, append=True)
 
         self.callbacks = [cp_callback, es_callback, hist_callback]
 
