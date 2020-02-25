@@ -57,6 +57,9 @@ speech recognition task. Currently, gurih contains the following functionalities
    :hidden:
    :caption: Getting Started
 
+   installation
+   examples
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -70,6 +73,6 @@ speech recognition task. Currently, gurih contains the following functionalities
    :caption: Additional Information
 
    relevant_knowledge
-   faq
-   about
+   contributing
+   modellog
    changelog

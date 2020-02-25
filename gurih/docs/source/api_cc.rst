@@ -1,5 +1,5 @@
-API CheatSheet
-==============
+API Reference
+=============
 
 The following APIs are the currently working APIs for gurih.
 
@@ -79,6 +79,25 @@ Decoder
 Model
 ~~~~~
 .. automodule:: gurih.models.model
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :inherited-members:
+
+Submodules
+----------
+
+Utils
+~~~~~
+.. automodule:: gurih.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :inherited-members:
+
+Model Utils
+~~~~~
+.. automodule:: gurih.models.utils
     :members:
     :undoc-members:
     :show-inheritance:
