@@ -1,3 +1,4 @@
+import os
 import unittest
 
 import librosa
@@ -12,7 +13,15 @@ class ExtractorTest(unittest.TestCase):
         self.mfcc_default = MFCCFeatureExtractor()
         self.mfcc_39_coefficients = MFCCFeatureExtractor(append_delta=True)
         self.signal, _ = librosa.load("test_data/test_20kb.wav", sr=16000)
-        self.signal_training = {"0": self.signal}
+        self.encoded_filename = "0"
+        self.signal_training = {self.encoded_filename: self.signal}
+
+    def tearDown(self):
+        try:
+            npz_filename = f"{self.encoded_filename}.npz"
+            os.remove(npz_filename)
+        except OSError:
+            print("File does not exist")
 
     def test_preemphasis(self):
         """
