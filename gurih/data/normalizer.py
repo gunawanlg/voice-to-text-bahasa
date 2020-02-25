@@ -23,7 +23,7 @@ class AudioNormalizer(TransformerMixin):
         `False` means stereo.
 
     write_audio_output : bool, default=False
-        Store the Mel features to pickle.
+        Store the normalized audio data.
 
     output_dir : string, default='../data/processed/normalized'
         Output directory of where the normalized audio data
@@ -40,7 +40,7 @@ class AudioNormalizer(TransformerMixin):
     transform the raw audio data to a normalized audio signal data for the
     next preprocessing pipeline.
 
-    >>> normalizer = AudioNormalizer()
+    >>> normalizer = AudioNormalizer(is_training=True, encode=True)
     >>> X = ["OSR_us_000_0010_8k.wav", "OSR_us_000_0011_8k.wav"]
     >>> normalizer.transform(X)
     {0: array([0., 0., 0., ..., 0., 0., 0.], dtype=float32), 1:
@@ -48,12 +48,13 @@ class AudioNormalizer(TransformerMixin):
     """
 
     def __init__(self, sample_rate=16000, mono=True, write_audio_output=False, output_dir=".",
-                 encode=True):
+                 encode=False, is_training=False):
         self.sample_rate = sample_rate
         self.mono = mono
         self.output_dir = output_dir
         self.write_audio_output = write_audio_output
         self.encode = encode
+        self.is_training = is_training
 
     def fit(self, X, y=None):
         return self
@@ -74,7 +75,10 @@ class AudioNormalizer(TransformerMixin):
             filenames
         """
         # Create a dictionary to store key-value pairs of
-        signal_dict = {}
+        if self.is_training:
+            signal_dict = {}
+        else:
+            signals = []
 
         # Create a dictionary to encode the name of the sample of ids
         if self.encode:
@@ -83,7 +87,6 @@ class AudioNormalizer(TransformerMixin):
         processed_data_directory  = self.output_dir
         date = datetime.today().strftime("%Y%m%d")
 
-        signals = []
         for i, filename in enumerate(X):
             signal, sample_rate = librosa.load(filename, sr=self.sample_rate, mono=self.mono)
             if signal.ndim == 1:
@@ -105,14 +108,20 @@ class AudioNormalizer(TransformerMixin):
                 id_dict[i] = filename
                 signal_dict[i] = signal
             else:
-                filename = filename.replace(".mp3", "")
-                signal_dict[filename] = signal
-                signals.append(signal)
+                filename = filename[:-4].split("/")[-1]
+
+                if self.is_training:
+                    signal_dict[filename] = signal
+                else:
+                    signals.append(signal)
 
         # Write the .json file to store the corresponding ids and filenames
         if self.encode:
             with open(f"{self.output_dir}/{date}_audio_encoding.json", "w") as f:
                 json.dump(id_dict, f)
 
-        # return signal_dict
-        return signals
+        # return signal_dict or array of signal
+        if self.is_training:
+            return signal_dict
+        else:
+            return np.array(signals)
