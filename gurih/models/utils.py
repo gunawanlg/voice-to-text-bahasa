@@ -15,7 +15,7 @@ def wer_and_cer(y_true, y_pred, html_filename=None, return_stats=False):
     html_filename : str, optional
         write output html or not. Only valid if given str input
 
-   Returns
+    Returns
     -------
     out : dict
         dictionary contain wer and cer values with keys ['wer', 'cer']
