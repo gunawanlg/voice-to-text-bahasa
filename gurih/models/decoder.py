@@ -5,6 +5,8 @@ import tensorflow.keras.backend as K
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_is_fitted
 
+__all__ = ['CTCDecoder']
+
 
 class CTCDecoder(BaseEstimator):
     """

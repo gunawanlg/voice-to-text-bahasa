@@ -20,6 +20,8 @@ from matplotlib import pyplot as plt
 
 from gurih.data.data_generator import DataGenerator, iterate_data_generator
 
+__all__ = ['BaselineASRModel']
+
 
 class _BaseModel:
     """
