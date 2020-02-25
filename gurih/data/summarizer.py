@@ -1,13 +1,13 @@
 import json
 
-import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin
+
 
 class Summarizer(TransformerMixin):
     """
     Given a list of .json files from the aligner ouput
-    Summarizer will return a pd.DataFrame of the statistical summary of 
+    Summarizer will return a pd.DataFrame of the statistical summary of
     each split.
 
     Parameters
@@ -22,7 +22,8 @@ class Summarizer(TransformerMixin):
         Output filename for the results of summarizer.
     """
 
-    def __init__(self, write_output=True, output_dir=".", output_filename="statistical_summary.csv"):
+    def __init__(self, write_output=True, output_dir=".",
+                 output_filename="statistical_summary.csv"):
         self.write_output = write_output
         self.output_dir = output_dir
         self.output_filename = output_filename
@@ -31,7 +32,7 @@ class Summarizer(TransformerMixin):
         return X
 
     def transform(self, X):
-        # Generate empty list for storing row outputs 
+        # Generate empty list for storing row outputs
         ids = []
         audio_durations = []
         transcripts = []
@@ -66,7 +67,7 @@ class Summarizer(TransformerMixin):
 
                     transcript = fragment["lines"][0]
                     transcripts.append(transcript)
-                    
+
                     transcript_length = len(transcript)
                     transcript_lengths.append(transcript_length)
 
@@ -88,21 +89,21 @@ class Summarizer(TransformerMixin):
                     split_by_comma_wlengths.append(split_by_comma_wlength)
                     max_split_by_comma_wlengths.append(max(split_by_comma_wlength))
                     min_split_by_comma_wlengths.append(min(split_by_comma_wlength))
-        
+
         # Generate DataFrame for the ouput
         df = pd.DataFrame({
-                "id_name": ids,
-                "audio_duration": audio_durations,
-                "transcript": transcripts,
-                "transcript_length": transcript_lengths,
-                "total_comma" : total_commas,
-                "split_by_comma_length": split_by_comma_clengths,
-                "max_split_by_comma_length" : max_split_by_comma_clengths,
-                "min_split_by_comma_length" : min_split_by_comma_clengths,
-                "split_by_comma_wlength": split_by_comma_wlengths,
-                "max_split_by_comma_wlength" : max_split_by_comma_wlengths,
-                "min_split_by_comma_wlength" : min_split_by_comma_wlengths
-            })
+            "id_name": ids,
+            "audio_duration": audio_durations,
+            "transcript": transcripts,
+            "transcript_length": transcript_lengths,
+            "total_comma": total_commas,
+            "split_by_comma_length": split_by_comma_clengths,
+            "max_split_by_comma_length": max_split_by_comma_clengths,
+            "min_split_by_comma_length": min_split_by_comma_clengths,
+            "split_by_comma_wlength": split_by_comma_wlengths,
+            "max_split_by_comma_wlength": max_split_by_comma_wlengths,
+            "min_split_by_comma_wlength": min_split_by_comma_wlengths
+        })
 
         # Write the output to .csv if True
         if self.write_output:
@@ -112,4 +113,4 @@ class Summarizer(TransformerMixin):
         return df
 
     def fit_transform(self, X, y=None):
-        return fit(X).transform(X)
+        return self.fit(X).transform(X)

@@ -1,4 +1,7 @@
 # Voice to Text Bahasa
+![Build Status](https://travis-ci.com/Arc-rendezvous/voice-to-text-bahasa.svg?token=5tiyHPA8cpz3o58hhBPz&branch=development)
+![codecov](https://codecov.io/gh/Arc-rendezvous/voice-to-text-bahasa/branch/development/graph/badge.svg?token=iHS19McW5N)
+
 Speech Recognition for Indonesian spoken language.
 
 ## Project Structure

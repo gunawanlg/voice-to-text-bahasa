@@ -1,14 +1,6 @@
-import os
-import glob
-import string
 import unittest
 
-import numpy as np
-
-from sklearn.pipeline import Pipeline
-from gurih.data.normalizer import AudioNormalizer
 from gurih.data.data_generator import DataGenerator
-from gurih.features.extractor import MFCCFeatureExtractor
 from gurih.models.utils import CharMap
 
 
@@ -16,49 +8,26 @@ class DataGeneratorTest(unittest.TestCase):
     """Test suite for DataGenerator class"""
     @classmethod
     def setUpClass(cls):
-        """
-        Make dummy .npz and .txt
-        """
         input_dir = "test_data/data_generator/"
-        
-        X = glob.glob(input_dir+"*.mp3")
-
-        pipeline = Pipeline(
-            steps = [
-                ("normalizer", AudioNormalizer(output_dir=input_dir)),
-                ("mfcc_feature_extractor", MFCCFeatureExtractor(write_output=True,
-                                                                output_dir=input_dir,
-                                                                append_delta=True))
-            ]
-        )
-        _ = pipeline.fit_transform(X)
         cls.input_dir = input_dir
 
     @classmethod
     def tearDownClass(cls):
-        """
-        Delete dummy .npz and .txt
-        """
-        npz_files = glob.glob(cls.input_dir+"*.npz")
-        json_files = glob.glob(cls.input_dir+"*.json")
-        for npz_file in npz_files:
-            os.remove(npz_file)
-        for json_file in json_files:
-            os.remove(json_file)
+        del cls.input_dir
 
     def test_get_item(self):
         CHAR_TO_IDX_MAP = CharMap.CHAR_TO_IDX_MAP
 
-        MAX_SEQ_LENGTH = 2500
-        MAX_LABEL_LENGTH = 100
+        MAX_SEQ_LENGTH = 3000
+        MAX_LABEL_LENGTH = 300
         BATCH_SIZE = 1
 
         generator = DataGenerator(input_dir=self.input_dir,
-                                max_seq_length=MAX_SEQ_LENGTH,
-                                max_label_length=MAX_LABEL_LENGTH,
-                                ctc_input_length=1245,
-                                char_to_idx_map=CHAR_TO_IDX_MAP,
-                                batch_size=BATCH_SIZE)
+                                  max_seq_length=MAX_SEQ_LENGTH,
+                                  max_label_length=MAX_LABEL_LENGTH,
+                                  ctc_input_length=1495,
+                                  char_to_idx_map=CHAR_TO_IDX_MAP,
+                                  batch_size=BATCH_SIZE)
 
         batch0, _ = generator.__getitem__(0)
         batch1, _ = generator.__getitem__(1)

@@ -28,6 +28,7 @@ import multiprocessing
 from gurih.data.splitter import AeneasSplitter
 from gurih.utils import batch
 
+
 def split_batch(id, batch, splitter):
     """
     Perform splitting in batches.
@@ -45,10 +46,11 @@ def split_batch(id, batch, splitter):
     for json in batch:
         fragments = splitter.load(json)
         splitter.split_and_write(fragments)
-    
+
     print(f"Worker {id} done.")
 
     return
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -75,13 +77,13 @@ if __name__ == '__main__':
     aligned_jsons = glob.glob(input_dir+"*.json")
     aligned_jsons = [os.path.basename(path) for path in aligned_jsons]
     print(f"Processing {len(aligned_jsons)} json files.")
-    
+
     cpus = os.cpu_count()
     batches = batch(aligned_jsons, n=(cpus - 1))
-    
+
     # Spawn jobs
     jobs = []
-    for i, b in zip(range(cpus - 1), batches): # don't use all cores
+    for i, b in zip(range(cpus - 1), batches):  # don't use all cores
         p = multiprocessing.Process(target=split_batch, args=[i, b, splitter])
         jobs.append(p)
         p.start()

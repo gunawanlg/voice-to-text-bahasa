@@ -1,11 +1,10 @@
-import numpy
-import tensorflow.keras.backend as K
+import numpy as np
 
 
-def wer(y_true, y_pred, write_html=False):
+def wer_and_cer(y_true, y_pred, html_filename=None):
     """
-    Given two list of strings how many word error rate(insert, delete or 
-    substitution).
+    Calculate both word error rate and character error rate for given strings
+    or list of strings.
 
     Parameters
     ----------
@@ -13,13 +12,90 @@ def wer(y_true, y_pred, write_html=False):
         references, ground truth label string
     y_pred : list of str, str
         hypothesis, prediction from model
-    write_html : bool, optional
+    html_filename : str, optional
+        write output html or not. Only valid if given str input
+
+   Returns
+    -------
+    out : dict
+        dictionary contain wer and cer values with keys ['wer', 'cer']
+    """
+    if (isinstance(y_true, str) & isinstance(y_pred, str)):
+        wer = __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=html_filename)
+        cer = __single_wer(list(y_true), list(y_pred), html_filename=html_filename)
+    else:
+        wer = 0
+        cer = 0
+        for r, h in zip(y_true, y_pred):
+            wer += __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=None)
+            cer += __single_wer(list(r), list(h), html_filename=None)
+        wer /= len(y_pred)
+        cer /= len(y_pred)
+
+    return {"wer": wer, "cer": cer}
+
+
+def cer(y_true, y_pred, html_filename=None):
+    """
+    Given to list of strings how many character error rate (insertion, deletion
+    , and substitution)
+
+    Parameters
+    ----------
+    y_true : list of str, str
+        references, ground truth label string
+    y_pred : list of str, str
+        hypothesis, prediction from model
+    html_filename : str, optional
+        write output html or not. Only valid if given str input
+
+    Returns
+    -------
+    cer : float
+        Word error rate number of (substitution + insertion + deletion) divided
+        by number of words in references.
+
+    Examples
+    --------
+    >>> y_true = ['aku dan dia', 'dia dan kamu', 'kamu dan aku']
+    >>> y_pred = ['aky dan dia', 'diaa dan kamu', 'kamu aku']
+    >>> cer(y_true, y_pred)
+    16.919191919191917
+
+    >>> y_true = 'aku, kamu, dan dia'
+    >>> y_pred = 'ak, dia, dan'
+    >>> cer(y_true, y_pred)
+    50.0
+    """
+    if (isinstance(y_true, str) & isinstance(y_pred, str)):
+        result = __single_wer(list(y_true), list(y_pred), html_filename=html_filename)
+    else:
+        result = 0
+        for r, h in zip(y_true, y_pred):
+            result += __single_wer(list(r), list(h), html_filename=None)
+        result /= len(y_pred)
+
+    return result
+
+
+def wer(y_true, y_pred, html_filename=None):
+    """
+    Given two list of strings how many word error rate (insertion, deletion,
+    and substitution)
+
+    Parameters
+    ----------
+    y_true : list of str, str
+        references, ground truth label string
+    y_pred : list of str, str
+        hypothesis, prediction from model
+    html_filename : str, optional
         write output html or not. Only valid if given str input.
-    
+
     Returns
     -------
     wer : float
-        Word error rate number of (substitution + insertion + deletion) divided 
+        Word error rate number of (substitution + insertion + deletion) divided
         by number of words in references.
 
     Examples
@@ -28,56 +104,22 @@ def wer(y_true, y_pred, write_html=False):
     >>> y_pred = ['aky dan dia', 'diaa dan kamu', 'kamu aku']
     >>> wer(y_true, y_pred)
     33.33333333333333
-    
+
     >>> y_true = 'aku, kamu, dan dia'
     >>> y_pred = 'ak, dia, dan'
     >>> wer(y_true, y_pred)
     50.0
     """
-    if (type(y_true) == list) and (type(y_pred) == list):
+    if (isinstance(y_true, str) & isinstance(y_pred, str)):
+        result = __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=html_filename)
+    else:
         result = 0
         for r, h in zip(y_true, y_pred):
-            result += __single_wer(r.split(' '), h.split(' '), write_html=False)
+            result += __single_wer(r.split(' '), h.split(' '), html_filename=None)
         result /= len(y_pred)
-    else:
-        result = __single_wer(y_true, y_pred, write_html=write_html)
 
     return result
 
-def ctc_decode(ctc_matrix, idx_to_char_map, **kwargs):
-    """
-    Decode ctc matrix output into human readable text using
-    tensorflow.keras.backend.ctc_decode
-
-    Parameters
-    ----------
-    ctc_matrix : np.array(shape=[m, max_sequence_length, vocab_len])
-        output from ASR model where m denotes number of samples
-    idx_to_char_map : dict
-        map index output to character, including blank token
-
-    Returns
-    -------
-    y_preds : list of str
-        string prediction from the model
-    """
-    ctc_matrix_decoded = K.ctc_decode(ctc_matrix,
-                          [ctc_matrix.shape[1]]*ctc_matrix.shape[0],
-                          **kwargs)
-    
-    ctc_decoded, _ = ctc_matrix_decoded
-    ctc_decoded = ctc_decoded[0].numpy()
-
-    y_preds = []
-    for y_pred in ctc_decoded:
-        output_text = ""
-        for idx in y_pred:
-            if idx in idx_to_char_map:
-                output_text += idx_to_char_map[idx]    
-        output_text = output_text.strip()
-        y_preds.append(output_text)
-
-    return y_preds
 
 class CharMap:
     """
@@ -122,59 +164,74 @@ class CharMap:
         return len(self.CHAR_TO_IDX_MAP) - 1
 
 
-def __single_wer(r, h, write_html):
-        d = numpy.zeros((len(r) + 1) * (len(h) + 1), dtype=numpy.uint16)
-        d = d.reshape((len(r) + 1, len(h) + 1))
-        for i in range(len(r) + 1):
-            for j in range(len(h) + 1):
-                if i == 0:
-                    d[0][j] = j
-                elif j == 0:
-                    d[i][0] = i
+def __single_wer(r, h, html_filename=None, return_stats=False):
+    d = np.zeros((len(r) + 1) * (len(h) + 1), dtype=np.uint16)
+    d = d.reshape((len(r) + 1, len(h) + 1))
+    for i in range(len(r) + 1):
+        for j in range(len(h) + 1):
+            if i == 0:
+                d[0][j] = j
+            elif j == 0:
+                d[i][0] = i
 
-        for i in range(1, len(r) + 1):
-            for j in range(1, len(h) + 1):
-                if r[i - 1] == h[j - 1]:
-                    d[i][j] = d[i - 1][j - 1]
-                else:
-                    substitution = d[i - 1][j - 1] + 1
-                    insertion = d[i][j - 1] + 1
-                    deletion = d[i - 1][j] + 1
-                    d[i][j] = min(substitution, insertion, deletion)
-        result = float(d[len(r)][len(h)]) / len(r) * 100
+    for i in range(1, len(r) + 1):
+        for j in range(1, len(h) + 1):
+            if r[i - 1] == h[j - 1]:
+                d[i][j] = d[i - 1][j - 1]
+            else:
+                substitution = d[i - 1][j - 1] + 1
+                insertion = d[i][j - 1] + 1
+                deletion = d[i - 1][j] + 1
+                d[i][j] = min(substitution, insertion, deletion)
+    result = float(d[len(r)][len(h)]) / len(r) * 100
 
-        if write_html:
-            x = len(r)
-            y = len(h)
+    # Backtrace
+    x = len(r)
+    y = len(h)
 
-            html = '<html><body><head><meta charset="utf-8"></head>' \
-                '<style>.g{background-color:#0080004d}.r{background-color:#ff00004d}.y{background-color:#ffa50099}</style>'
+    stats = {}
+    stats['ok'] = 0
+    stats['sub'] = 0
+    stats['ins'] = 0
+    stats['del'] = 0
 
-            while True:
-                if x == 0 or y == 0:
-                    break
+    html = '<html><body><head><meta charset="utf-8"></head>' \
+        '<style>.g{background-color:#0080004d}.r{background-color:#ff00004d}.' \
+        'y{background-color:#ffa50099}</style>'
 
-                if r[x - 1] == h[y - 1]:
-                    x = x - 1
-                    y = y - 1
-                    html = '%s ' % h[y] + html
-                elif d[x][y] == d[x - 1][y - 1] + 1:    # substitution
-                    x = x - 1
-                    y = y - 1
-                    html = '<span class="y">%s(%s)</span> ' % (h[y], r[x]) + html
-                elif d[x][y] == d[x - 1][y] + 1:        # deletion
-                    x = x - 1
-                    html = '<span class="r">%s</span> ' % r[x] + html
-                elif d[x][y] == d[x][y - 1] + 1:        # insertion
-                    y = y - 1
-                    html = '<span class="g">%s</span> ' % h[y] + html
-                else:
-                    raise ValueError('\nWe got an error.')
-                    break
+    while True:
+        if x == 0 or y == 0:
+            break
 
-            html = html + '</body></html>'
+        if r[x - 1] == h[y - 1]:
+            stats['ok'] += 1
+            x = x - 1
+            y = y - 1
+            html = '%s ' % h[y] + html
+        elif d[x][y] == d[x - 1][y - 1] + 1:    # substitution
+            stats['sub'] += 1
+            x = x - 1
+            y = y - 1
+            html = '<span class="y">%s(%s)</span> ' % (h[y], r[x]) + html
+        elif d[x][y] == d[x - 1][y] + 1:        # deletion
+            stats['del'] += 1
+            x = x - 1
+            html = '<span class="r">%s</span> ' % r[x] + html
+        elif d[x][y] == d[x][y - 1] + 1:        # insertion
+            stats['ins'] += 1
+            y = y - 1
+            html = '<span class="g">%s</span> ' % h[y] + html
+        else:
+            raise ValueError('\nWe got an error.')
+            break
 
-            with open('diff.html', 'w', encoding='utf8') as f:
-                f.write(html)
+    html = html + '</body></html>'
 
+    if html_filename is not None:
+        with open(html_filename, 'w', encoding='utf8') as f:
+            f.write(html)
+
+    if return_stats is True:
+        return result, stats
+    else:
         return result

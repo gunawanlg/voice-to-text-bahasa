@@ -1,14 +1,15 @@
+import os
+# from datetime import datetime
+
 import numpy as np
 from scipy.fftpack import dct
 from sklearn.base import TransformerMixin
-import librosa
-import os
-from datetime import datetime
-import pickle
+from sklearn.utils.validation import check_is_fitted
 
 __all__ = [
     'MFCCFeatureExtractor'
 ]
+
 
 class _BaseFeatureExtractor(TransformerMixin):
     """
@@ -40,7 +41,8 @@ class _BaseFeatureExtractor(TransformerMixin):
 
         return emphasized_signal
 
-    def _frame_signal(self, signal, sample_rate, frame_size=0.025, frame_stride=0.01, winfunc=lambda x: np.ones((x,))):
+    def _frame_signal(self, signal, sample_rate, frame_size=0.025, frame_stride=0.01,
+                      winfunc=lambda x: np.ones((x,))):
         """
         Split signal into short-time frames
 
@@ -78,7 +80,8 @@ class _BaseFeatureExtractor(TransformerMixin):
         z = np.zeros((pad_signal_length - signal_length))
         pad_signal = np.concatenate((signal, z))
 
-        indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) + np.tile(np.arange(0, num_frames * frame_step, frame_step), (frame_length, 1)).T
+        indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) \
+            + np.tile(np.arange(0, num_frames * frame_step, frame_step), (frame_length, 1)).T
 
         frames = pad_signal[indices.astype(np.int32, copy=False)]
         frames *= np.tile(winfunc(frame_length), (num_frames, 1))
@@ -102,7 +105,6 @@ class _BaseFeatureExtractor(TransformerMixin):
 
         return 2595 * np.log10(1 + hz / 700.0)
 
-
     def _convert_mel_to_hz(self, mel):
         """
         Convert Mel frequency to frequency.
@@ -119,7 +121,8 @@ class _BaseFeatureExtractor(TransformerMixin):
         """
         return 700 * (10**(mel / 2595.0) - 1)
 
-    def _get_filter_banks(self, filter_num=20, NFFT=512, sample_rate=16000, low_freq=0, high_freq=None):
+    def _get_filter_banks(self, filter_num=20, NFFT=512, sample_rate=16000, low_freq=0,
+                          high_freq=None):
 
         """
         Get the Mel filter banks.
@@ -128,10 +131,10 @@ class _BaseFeatureExtractor(TransformerMixin):
         ----------
         filter_num : int, default=20
             Number of Mel filters.
-        
+
         NFFT : int, default=512
             Size of the Fast Fourier Transform
-        
+
         sample_rate : int, default=16000
             Sampling rate
 
@@ -146,24 +149,24 @@ class _BaseFeatureExtractor(TransformerMixin):
         filter_bank : 1-D np.array
             Filter bank
         """
-        
+
         low_mel = self._convert_hz_to_mel(low_freq)
 
         high_freq = high_freq or sample_rate / 2
         high_mel = self._convert_hz_to_mel(high_freq)
 
         mel_points = np.linspace(low_mel, high_mel, filter_num + 2)
-        
+
         hz_points = self._convert_mel_to_hz(mel_points)
-        
+
         bin = np.floor((NFFT + 1) * hz_points / sample_rate)
-        
+
         filter_bank = np.zeros([filter_num, int(NFFT / 2 + 1)])
         for j in range(0, filter_num):
-            for i in range(int(bin[j]), int(bin[j+1])):
-                filter_bank[j,i] = (i-bin[j]) / (bin[j+1]-bin[j])
-            for i in range(int(bin[j+1]), int(bin[j+2])):
-                filter_bank[j,i] = (bin[j+2]-i) / (bin[j+2]-bin[j+1])
+            for i in range(int(bin[j]), int(bin[j + 1])):
+                filter_bank[j, i] = (i - bin[j]) / (bin[j + 1] - bin[j])
+            for i in range(int(bin[j + 1]), int(bin[j + 2])):
+                filter_bank[j, i] = (bin[j + 2] - i) / (bin[j + 2] - bin[j + 1])
         return filter_bank
 
     def _apply_fourier_transform(self, frames, NFFT=512):
@@ -186,7 +189,7 @@ class _BaseFeatureExtractor(TransformerMixin):
         """
 
         complex_spectrum = np.fft.rfft(frames, NFFT)
-        power_spectrum = 1.0/NFFT * np.square(np.absolute(complex_spectrum))
+        power_spectrum = 1.0 / NFFT * np.square(np.absolute(complex_spectrum))
         return power_spectrum
 
     def _compute_delta(self, features, N=2):
@@ -207,11 +210,15 @@ class _BaseFeatureExtractor(TransformerMixin):
             Array of delat features
         """
         NUMFRAMES = len(features)
-        features = np.concatenate(([features[0] for i in range(N)], features, [features[-1] for i in range(N)]))
-        denom = sum([2*i*i for i in range(1, N+1)])
+        features = np.concatenate(
+            ([features[0] for i in range(N)], features, [features[-1] for i in range(N)])
+        )
+        denom = sum([2 * i * i for i in range(1, N + 1)])
         delta_features = []
         for j in range(NUMFRAMES):
-            delta_features.append(np.sum([n*features[N+j+n] for n in range(-1*N, N+1)], axis=0)/denom)
+            delta_features.append(
+                np.sum([n * features[N + j + n] for n in range(-1 * N, N + 1)], axis=0) / denom
+            )
         return delta_features
 
     def _apply_lifter(self, cepstra, L=22):
@@ -239,12 +246,13 @@ class _BaseFeatureExtractor(TransformerMixin):
         else:
             return cepstra
 
+
 class MFCCFeatureExtractor(_BaseFeatureExtractor):
     """
     Extract Mel features from audio files
 
     The input for this transformer should be an array-like of
-    strings. The features from the audio are extracted through an 
+    strings. The features from the audio are extracted through an
     MFCC way. This results in an array of integers of Mel features
     for each audio.
 
@@ -282,11 +290,11 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
     dct_type : int, default=2
         Type of numpy discrete consine transform.
-    
+
     dct_norm : str, default="ortho"
         Normalization mode of the dct.
 
-    append_energy:
+    append_energy: bool, default=True
         Replace the zeroth cepstral coeff with the energy.
 
     append_delta : bool, default=False
@@ -294,7 +302,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
     low_memory : bool, default=False
         Save the features inside a dict or not
-    
+
     write_output : bool, default=False
         Store the Mel features to pickle.
 
@@ -308,7 +316,7 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
     transform the audio signal data to a Mel's feature.
 
     >>> mfcc = MFCCFeatureExtractor()
-    >>> X = ["OSR_us_000_0010_8k.wav"]
+    >>> X = np.random.rand(1, 16000)
     >>> mfcc.fit(X)
     >>> mfcc.filter_bank_
     [[0.   0.5  1.   ... 0.   0.   0.  ]
@@ -320,7 +328,12 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         ...]
     """
 
-    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26, cep_num=13, NFFT=512, low_freq=0, high_freq=None,pre_emphasis_coeff=0.97, cep_lifter=22, dct_type=2, dct_norm="ortho", append_energy=True, append_delta=False, low_memory=False, write_output=True, output_dir="."):
+    def __init__(self, sample_rate=16000, frame_size=0.025, frame_stride=0.01, filter_num=26,
+                 cep_num=13, NFFT=512, low_freq=0, high_freq=None, pre_emphasis_coeff=0.97,
+                 cep_lifter=22, dct_type=2, dct_norm="ortho", append_energy=True,
+                 append_delta=False, low_memory=False, write_output=True, ignore_output=False,
+                 output_dir=".", is_training=False):
+
         self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.frame_stride = frame_stride
@@ -333,14 +346,16 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         self.cep_num = cep_num
         self.dct_type = dct_type
         self.dct_norm = dct_norm
-        
+
         self.append_delta = append_delta
         self.append_energy = True
 
         self.low_memory = low_memory
         self.write_output = write_output
+        self.ignore_output = ignore_output
         self.output_dir = output_dir
-    
+        self.is_training = is_training
+
     def fit(self, X, y=None):
         """
         Fit MFCCFeatureExtractor to X.
@@ -354,7 +369,11 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
         -------
         self
         """
-        self.filter_bank_ = super()._get_filter_banks(self.filter_num, self.NFFT, self.sample_rate, self.low_freq, self.high_freq)
+        self.filter_bank_ = super()._get_filter_banks(self.filter_num,
+                                                      self.NFFT,
+                                                      self.sample_rate,
+                                                      self.low_freq,
+                                                      self.high_freq)
 
         return self
 
@@ -364,65 +383,91 @@ class MFCCFeatureExtractor(_BaseFeatureExtractor):
 
         Parameters
         ----------
-        X : dict
-            The data to transform
+        X : numpy.ndaray[shape=(m, sequence_length)]
+            input audio sequence
 
         Returns
         -------
-        mfcc_features_dict : dict
-            Dict of array of Mel features
+        features : numpy.ndarray[shape=(m, dim, total_mfcc_features)]
+            transform input audio sequence into mfcc features where:
+            total_mfcc_features = cep_num * 3 if append_delta = True,
+                cep_num otherwise
+            dim = 1 + ⌈|signal_length - (frame_size * sample_rate)| /
+                (frame_stride * sample_rate)⌉
         """
-
-        if not self.low_memory:
-            mfcc_features_dict = {}
+        check_is_fitted(self, 'filter_bank_')
 
         if self.write_output:
             processed_data_directory  = self.output_dir
-            date = datetime.today().strftime("%Y%m%d")
+            # date = datetime.today().strftime("%Y%m%d")
             if not os.path.exists(processed_data_directory):
                 os.mkdir(processed_data_directory)
 
-        for filename in X.keys():
-            signal = X[filename]
+        if not self.is_training:
+            if X.ndim == 3:  # (m, chunks, frames)
+                X = X[0]
 
-            signal = super()._apply_pre_emphasis(signal, self.pre_emphasis_coeff)
-
-            frames = super()._frame_signal(signal, self.sample_rate, self.frame_size, self.frame_stride)
-
-            spec_power = super()._apply_fourier_transform(frames, self.NFFT)
-
-            energy = np.sum(spec_power, 1)
-            energy = np.where(energy==0, np.finfo(float).eps, energy)
-
-            filter_bank_ = self.filter_bank_
-
-            features = np.dot(spec_power, filter_bank_.T)
-            features = np.where(features==0, np.finfo(float).eps, features)
-
-            features = np.log(features)
-            features = dct(features, type=self.dct_type, axis=1, norm=self.dct_norm)[:, :self.cep_num]
-
-            features = super()._apply_lifter(features, self.cep_lifter)
-
-            if self.append_energy:
-                features[:, 0] = np.log(energy)
-
-            if self.append_delta:
-                delta_features = super()._compute_delta(features)
-                delta_features_delta = super()._compute_delta(delta_features)
-                features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
-
-            if not self.low_memory:
-                mfcc_features_dict[filename] = features
-
-            if self.write_output:
-                npz_filename = f"{filename}.npz"
-                np.savez(f"{processed_data_directory}/{npz_filename}", features)
-
-        if not self.low_memory:
-            return mfcc_features_dict
+        if self.low_memory is True:
+            return self._transform_gen(X)
         else:
-            return 0
+            if not self.ignore_output:
+                mfcc_signals = []
+
+            if self.is_training:
+                for filename, signal in X.items():
+                    features = self._transform_single(signal)
+
+                    if not self.ignore_output:
+                        mfcc_signals.append(features)
+
+                    if self.write_output:
+                        npz_filename = f"{filename}.npz"
+                        np.savez(f"{processed_data_directory}/{npz_filename}", features)
+            else:
+                for i, signal in enumerate(X):
+                    features = self._transform_single(signal)
+
+                    if not self.ignore_output:
+                        mfcc_signals.append(features)
+
+                    if self.write_output:
+                        npz_filename = f"{i}.npz"
+                        np.savez(f"{processed_data_directory}/{npz_filename}", features)
+
+            if not self.ignore_output:
+                return np.array(mfcc_signals)
 
     def fit_transform(self, X, y=None):
         return self.fit(X).transform(X)
+
+    def _transform_gen(self, X):
+        for signal in X:
+            features = self._transform_single(signal)
+
+            yield features
+
+    def _transform_single(self, x):
+        """Tranform single signal input."""
+        signal = super()._apply_pre_emphasis(x, self.pre_emphasis_coeff)
+        frames = super()._frame_signal(signal, self.sample_rate, self.frame_size, self.frame_stride)
+        spec_power = super()._apply_fourier_transform(frames, self.NFFT)
+
+        energy = np.sum(spec_power, 1)
+        energy = np.where(energy == 0, np.finfo(float).eps, energy)
+
+        filter_bank_ = self.filter_bank_
+        features = np.dot(spec_power, filter_bank_.T)
+        features = np.where(features == 0, np.finfo(float).eps, features)
+        features = np.log(features)
+        features = dct(features, type=self.dct_type, axis=1, norm=self.dct_norm)[:, :self.cep_num]
+        features = super()._apply_lifter(features, self.cep_lifter)
+
+        if self.append_energy:
+            features[:, 0] = np.log(energy)
+
+        if self.append_delta:
+            delta_features = super()._compute_delta(features)
+            delta_features_delta = super()._compute_delta(delta_features)
+            features = np.concatenate((features, delta_features, delta_features_delta), axis=1)
+
+        return features
