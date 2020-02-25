@@ -14,6 +14,9 @@ def wer_and_cer(y_true, y_pred, html_filename=None, return_stats=False):
         hypothesis, prediction from model
     html_filename : str, optional
         write output html or not. Only valid if given str input
+    return_stats : str, [default=False]
+        if True, will return number of subsitution, insertion, and deletion in
+        dictionary of stats
 
     Returns
     -------
@@ -82,6 +85,9 @@ def cer(y_true, y_pred, html_filename=None, return_stats=False):
         hypothesis, prediction from model
     html_filename : str, optional
         write output html or not. Only valid if given str input
+    return_stats : str, [default=False]
+        if True, will return number of subsitution, insertion, and deletion in
+        dictionary of stats
 
     Returns
     -------
