@@ -2,45 +2,44 @@
 ![Build Status](https://travis-ci.com/Arc-rendezvous/voice-to-text-bahasa.svg?token=5tiyHPA8cpz3o58hhBPz&branch=development)
 ![codecov](https://codecov.io/gh/Arc-rendezvous/voice-to-text-bahasa/branch/development/graph/badge.svg?token=iHS19McW5N)
 
-Speech Recognition for Indonesian spoken language.
+**gurih** is an automatic speech recognition (ASR) python module, crafted
+specifically for recognizing and transcribing speech spoken in Bahasa. Given an
+audio input, **gurih** will perform the transcription of the input.
 
-## Project Structure
+For example, given an input of ``30.240s``-long audio recording of Kancil story
+**gurih** will output the following transcription:
+
 ```
-$ ls
-├── LICENSE
-├── Makefile           <- Makefile with commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
-├── dataset
-│   ├── external       <- Data from third party sources.
-│   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
-│
-├── docs               <- Model summaries
-|
-├── models             <- Trained and serialized models and model predictions
-│
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
-│
-├── references         <- Data dictionaries, manuals, and all other explanatory materials including literature studies.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
-│
-├── src                <- Source code for use in this project.
-│   ├── data           <- Scripts to download or generate data
-│   │
-│   ├── features       <- Scripts to turn raw data into features for modeling
-│   │
-│   └── models         <- Scripts to train models and then use trained models to make
-│                         predictions
-|
-└── test               <- Script to tests modules in src directory.
+    Pada suatu hari, terjadilah kelaparan di sebuah pulau yang penduduknya 
+    kebanyakan di huni oleh para Harimau. Mereka sangat kelaparan, 
+    karena semakin hari tidak ada hewan yang dapat mereka mangsa. 
+    Akhirnya, Raja Harimau mengutus Panglima dan para Prajuritnya untuk pergi 
+    ke pulau kecil di sebrang dan kembali dengan membawa banyak makanan.
 ```
+
+How to Install
+--------------
+Currently ``gurih`` can only be installed by first cloning it from the repository
+hosted on GitHub. The following is how you can install the module, from the command-line:
+
+- ``git clone https://github.com/Arc-rendezvous/voice-to-text-bahasa.git``
+- ``cd voice-to-text-bahasa``
+- ``pip install -e .``
+
+Usage
+-----
+
+**gurih** can be used as a **Python package** inside third-party code directly
+as the `.py` script or embedded to `.ipynb` notebooks.
+
+Implemented Functionality
+-------------------------
+**gurih** provides the following functionality commonly used in the automatic
+speech recognition task. Currently, gurih contains the following functionalities:
+
+* ``gurih.models`` : contains the models used to perform the speech recognition task
+* ``gurih.data`` : contains all the scripts needed for the data preprocessing of the audio files and transcription
+* ``gurih.features`` : contains all the scripts needed for the feature extraction process
 
 ## Versioning
 This project use Semantic Versioning 2.0.0 from https://semver.org/.
