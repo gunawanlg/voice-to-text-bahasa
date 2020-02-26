@@ -4,6 +4,28 @@ import glob
 import numpy as np
 
 
+def generator_to_numpy(generator):
+    """
+    Convert generator object to numpy array.
+
+    Parameters
+    ----------
+    generator : generator
+        Generator object to be iterated.
+
+    Returns
+    -------
+    out : numpy.ndarray
+        numpy representation of input generator
+    """
+    out = []
+    for gen in generator:
+        out.append(gen)
+    out = np.array(out)
+
+    return out
+
+
 def sample_numpy(A, n, replace=False):
     """
     Sample numpy array.

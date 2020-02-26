@@ -20,6 +20,8 @@ from matplotlib import pyplot as plt
 
 from gurih.data.data_generator import DataGenerator, iterate_data_generator
 
+__all__ = ['BaselineASRModel']
+
 
 class _BaseModel:
     """
@@ -173,7 +175,7 @@ class _BaseModel:
                                     mode='min')
 
         hist_path = os.path.abspath(self._doc_path + self.name + '.csv')
-        hist_callback = CSVLogger(hist_path)
+        hist_callback = CSVLogger(hist_path, append=True)
 
         self.callbacks = [cp_callback, es_callback, hist_callback]
 
@@ -403,10 +405,11 @@ class BaselineASRModel(_BaseModel):
             ctc_matrix = self.predict(X_test, low_memory=low_memory)
         else:
             # Create data generator
+            CTC_INPUT_LENGTH = self.model.get_layer('the_output').output.shape[1]
             inputs = [
                 X_test,  # the_input
                 y_test,  # the_labels
-                np.array([len(X_test[0])] * len(X_test)),  # input_length
+                np.array([CTC_INPUT_LENGTH] * len(X_test)),  # input_length
                 np.array([len(y_test[0])] * len(y_test)),  # label_length
             ]
             ctc_loss = self.model.predict(inputs)

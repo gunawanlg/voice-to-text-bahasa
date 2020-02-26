@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def wer_and_cer(y_true, y_pred, html_filename=None):
+def wer_and_cer(y_true, y_pred, html_filename=None, return_stats=False):
     """
     Calculate both word error rate and character error rate for given strings
     or list of strings.
@@ -14,28 +14,65 @@ def wer_and_cer(y_true, y_pred, html_filename=None):
         hypothesis, prediction from model
     html_filename : str, optional
         write output html or not. Only valid if given str input
+    return_stats : str, [default=False]
+        if True, will return number of subsitution, insertion, and deletion in
+        dictionary of stats
 
-   Returns
+    Returns
     -------
     out : dict
         dictionary contain wer and cer values with keys ['wer', 'cer']
     """
     if (isinstance(y_true, str) & isinstance(y_pred, str)):
-        wer = __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=html_filename)
-        cer = __single_wer(list(y_true), list(y_pred), html_filename=html_filename)
-    else:
-        wer = 0
-        cer = 0
+        results_wer = __single_wer(y_true.split(' '), y_pred.split(' '),
+                                   html_filename=html_filename,
+                                   return_stats=return_stats)
+        result_cer = __single_wer(list(y_true), list(y_pred),
+                                  html_filename=html_filename,
+                                  return_stats=return_stats)
+
+        return {"wer": results_wer, "cer": result_cer}
+    elif (isinstance(y_true, list) & isinstance(y_pred, list)):
+        wer = []
+        cer = []
+        stats_wer = []
+        stats_cer = []
+
         for r, h in zip(y_true, y_pred):
-            wer += __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=None)
-            cer += __single_wer(list(r), list(h), html_filename=None)
-        wer /= len(y_pred)
-        cer /= len(y_pred)
+            if return_stats is True:
+                wer_, stats_wer_ = __single_wer(r.split(' '), h.split(' '),
+                                                html_filename=None,
+                                                return_stats=return_stats)
+                cer_, stats_cer_ = __single_wer(list(r), list(h),
+                                                html_filename=None,
+                                                return_stats=return_stats)
+                stats_wer.append(stats_wer_)
+                stats_cer.append(stats_cer_)
+            else:
+                wer_ = __single_wer(r.split(' '), h.split(' '),
+                                    html_filename=None,
+                                    return_stats=return_stats)
+                cer_ = __single_wer(list(r), list(h),
+                                    html_filename=None,
+                                    return_stats=return_stats)
+            wer.append(wer_)
+            cer.append(cer_)
 
-    return {"wer": wer, "cer": cer}
+        if return_stats is True:
+            return {
+                "wer": (np.array(wer), np.array(stats_wer)),
+                "cer": (np.array(cer), np.array(stats_cer))
+            }
+        else:
+            return {
+                "wer": np.array(wer),
+                "cer": np.array(cer)
+            }
+    else:
+        raise TypeError(f"Type mismatch. Got {type(y_true)} != {type(y_pred)}")
 
 
-def cer(y_true, y_pred, html_filename=None):
+def cer(y_true, y_pred, html_filename=None, return_stats=False):
     """
     Given to list of strings how many character error rate (insertion, deletion
     , and substitution)
@@ -48,6 +85,9 @@ def cer(y_true, y_pred, html_filename=None):
         hypothesis, prediction from model
     html_filename : str, optional
         write output html or not. Only valid if given str input
+    return_stats : str, [default=False]
+        if True, will return number of subsitution, insertion, and deletion in
+        dictionary of stats
 
     Returns
     -------
@@ -65,20 +105,38 @@ def cer(y_true, y_pred, html_filename=None):
     >>> y_true = 'aku, kamu, dan dia'
     >>> y_pred = 'ak, dia, dan'
     >>> cer(y_true, y_pred)
-    50.0
+    75.0
     """
     if (isinstance(y_true, str) & isinstance(y_pred, str)):
-        result = __single_wer(list(y_true), list(y_pred), html_filename=html_filename)
-    else:
-        result = 0
+        result = __single_wer(list(y_true), list(y_pred),
+                              html_filename=html_filename,
+                              return_stats=return_stats)
+        return result
+    elif (isinstance(y_true, list) & isinstance(y_pred, list)):
+        cer = []
+        stats = []
+
         for r, h in zip(y_true, y_pred):
-            result += __single_wer(list(r), list(h), html_filename=None)
-        result /= len(y_pred)
+            if return_stats is True:
+                cer_, stats_ = __single_wer(list(r), list(h),
+                                            html_filename=None,
+                                            return_stats=return_stats)
+                stats.append(stats_)
+            else:
+                cer_ = __single_wer(list(r), list(h),
+                                    html_filename=None,
+                                    return_stats=return_stats)
+            cer.append(cer_)
 
-    return result
+        if return_stats is True:
+            return np.array(cer), np.array(stats)
+        else:
+            return np.array(cer)
+    else:
+        raise TypeError(f"Type mismatch. Got {type(y_true)} != {type(y_pred)}")
 
 
-def wer(y_true, y_pred, html_filename=None):
+def wer(y_true, y_pred, html_filename=None, return_stats=False):
     """
     Given two list of strings how many word error rate (insertion, deletion,
     and substitution)
@@ -91,34 +149,58 @@ def wer(y_true, y_pred, html_filename=None):
         hypothesis, prediction from model
     html_filename : str, optional
         write output html or not. Only valid if given str input.
+    return_stats : str, [default=False]
+        if True, will return number of subsitution, insertion, and deletion in
+        dictionary of stats
 
     Returns
     -------
-    wer : float
+    wer : float, numpy.ndarray
         Word error rate number of (substitution + insertion + deletion) divided
         by number of words in references.
+    stats : numpy.ndarray, optional
+        this only returned if return_stats is true. Keys are 'ok', 'sub', 'del'
+        and 'ins'
 
     Examples
     --------
     >>> y_true = ['aku dan dia', 'dia dan kamu', 'kamu dan aku']
     >>> y_pred = ['aky dan dia', 'diaa dan kamu', 'kamu aku']
-    >>> wer(y_true, y_pred)
+    >>> wer(y_true, y_pred).mean()
     33.33333333333333
 
     >>> y_true = 'aku, kamu, dan dia'
     >>> y_pred = 'ak, dia, dan'
     >>> wer(y_true, y_pred)
-    50.0
+    75.0
     """
     if (isinstance(y_true, str) & isinstance(y_pred, str)):
-        result = __single_wer(y_true.split(' '), y_pred.split(' '), html_filename=html_filename)
-    else:
-        result = 0
-        for r, h in zip(y_true, y_pred):
-            result += __single_wer(r.split(' '), h.split(' '), html_filename=None)
-        result /= len(y_pred)
+        result = __single_wer(y_true.split(' '), y_pred.split(' '),
+                              html_filename=html_filename,
+                              return_stats=return_stats)
+        return result
+    elif (isinstance(y_true, list) & isinstance(y_pred, list)):
+        wer = []
+        stats = []
 
-    return result
+        for r, h in zip(y_true, y_pred):
+            if return_stats is True:
+                wer_, stats_ = __single_wer(r.split(' '), h.split(' '),
+                                            html_filename=None,
+                                            return_stats=return_stats)
+                stats.append(stats_)
+            else:
+                wer_ = __single_wer(r.split(' '), h.split(' '),
+                                    html_filename=None,
+                                    return_stats=return_stats)
+            wer.append(wer_)
+
+        if return_stats is True:
+            return np.array(wer), np.array(stats)
+        else:
+            return np.array(wer)
+    else:
+        raise TypeError(f"Type mismatch. Got {type(y_true)} != {type(y_pred)}")
 
 
 class CharMap:
@@ -189,11 +271,12 @@ def __single_wer(r, h, html_filename=None, return_stats=False):
     x = len(r)
     y = len(h)
 
-    stats = {}
-    stats['ok'] = 0
-    stats['sub'] = 0
-    stats['ins'] = 0
-    stats['del'] = 0
+    # Keys in order, 'ok', 'sub', 'ins', 'del'
+    if return_stats is True:
+        numOk = 0
+        numSub = 0
+        numDel = 0
+        numIns = 0
 
     html = '<html><body><head><meta charset="utf-8"></head>' \
         '<style>.g{background-color:#0080004d}.r{background-color:#ff00004d}.' \
@@ -204,21 +287,25 @@ def __single_wer(r, h, html_filename=None, return_stats=False):
             break
 
         if r[x - 1] == h[y - 1]:
-            stats['ok'] += 1
+            if return_stats is True:
+                numOk += 1
             x = x - 1
             y = y - 1
             html = '%s ' % h[y] + html
         elif d[x][y] == d[x - 1][y - 1] + 1:    # substitution
-            stats['sub'] += 1
+            if return_stats is True:
+                numSub += 1
             x = x - 1
             y = y - 1
             html = '<span class="y">%s(%s)</span> ' % (h[y], r[x]) + html
         elif d[x][y] == d[x - 1][y] + 1:        # deletion
-            stats['del'] += 1
+            if return_stats is True:
+                numDel += 1
             x = x - 1
             html = '<span class="r">%s</span> ' % r[x] + html
         elif d[x][y] == d[x][y - 1] + 1:        # insertion
-            stats['ins'] += 1
+            if return_stats is True:
+                numIns += 1
             y = y - 1
             html = '<span class="g">%s</span> ' % h[y] + html
         else:
@@ -232,6 +319,8 @@ def __single_wer(r, h, html_filename=None, return_stats=False):
             f.write(html)
 
     if return_stats is True:
+        stats = []
+        stats.extend([numOk, numSub, numDel, numIns])
         return result, stats
     else:
         return result

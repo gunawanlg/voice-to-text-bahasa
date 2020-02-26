@@ -8,6 +8,8 @@ from pydub import AudioSegment
 # from pydub.utils import mediainfo
 from tqdm.auto import tqdm
 
+__all__ = ['Splitter']
+
 
 class Splitter(TransformerMixin):
     """

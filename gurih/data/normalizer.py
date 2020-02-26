@@ -6,6 +6,8 @@ import numpy as np
 import librosa
 from sklearn.base import TransformerMixin
 
+__all__ = ['AudioNormalizer']
+
 
 class AudioNormalizer(TransformerMixin):
     """
