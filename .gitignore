@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 
 # Data directory, it will be created using script in src/
-data/
+dataset/
+.vscode/
