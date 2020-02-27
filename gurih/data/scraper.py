@@ -62,18 +62,28 @@ class BibleIsScraper:
     def __init__(self, base_url, driver_path, output_dir='../../dataset/raw/bibleis/'):
         self.base_url = base_url
         self.driver_path = driver_path
-        self.output_dir = output_dir
+        self.output_dir = output_dir if output_dir[-1] == '/' else output_dir + '/'
         self.data = []
         self.urls = []
         self.scrape_text = True
         self.scrape_audio = True
         self.debug = []
 
+        # Get inferred version from base_url
+        if 'INDASV' in base_url:
+            version = 'INDASV'
+        elif 'INDWBT' in base_url:
+            version = 'INDWBT'
+        else:
+            raise ValueError("Base url version not supported."
+                             " Required either INDASV or INDWBT version")
+        self.version = version
+
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
-            print("Output directory created at " + self.output_dir)
+            print("Output directory created at " + self.output_dir + "\n")
         else:
-            print("Output directory is already created at " + self.output_dir)
+            print("Output directory is already created at " + self.output_dir + "\n")
 
         print("Scrape text: " + str(self.scrape_text))
         print("Scrape audio: " + str(self.scrape_audio))
@@ -143,40 +153,13 @@ class BibleIsScraper:
         driver = webdriver.Chrome(self.driver_path)
         driver.get(url)
 
-        chapter_string = ''
         audio_title = ''
 
         if self.scrape_text:
-            # Get all verses
-            chapter_section = driver.find_element_by_css_selector(".chapter")
-            ps = chapter_section.find_elements_by_css_selector("p")
-
-            verses = []
-            if len(ps) != 0:
-                for p in ps:  # not including the chapter number
-                    p_text = p.get_attribute("innerHTML")  # get all text
-
-                    # Find disconnected verse, join it
-                    hanging_verse_idx = p_text.find('<')
-                    if hanging_verse_idx != 0:
-                        hanging_verse = p_text[:hanging_verse_idx]
-                        self.debug.append(f"{url} {hanging_verse}")
-                        if len(verses) == 0:  # handle occurence in first <p>
-                            verses.append(hanging_verse)
-                        else:
-                            last_verse = verses.pop()
-                            verses.append(last_verse + " " + hanging_verse)
-
-                    other_verses = p.find_elements_by_css_selector(".v")
-                    other_verses = [v.get_attribute("innerHTML") for v in other_verses]
-                    verses.extend(other_verses)
-            # handle chapter not having any p element
-            else:
-                other_verses = chapter_section.find_elements_by_css_selector(".v")
-                other_verses = [v.get_attribute("innerHTML") for v in other_verses]
-                verses.extend(other_verses)
-
-            chapter_string = '\n\n'.join(verses)
+            if self.version == 'INDASV':
+                chapter_string = self._scrape_text_indasv(driver, url)
+            elif self.version == 'INDWBT':
+                chapter_string = self._scrape_text_indwbt(driver, url)
 
         if self.scrape_audio:
             # Get audio file attributes
@@ -184,7 +167,7 @@ class BibleIsScraper:
             audio_src   = audio.get_attribute("src")
             audio_title = re.search("[^?]*", url[28:]).group() + ".mp3"
             audio_title = audio_title.replace("/", "_")
-            audio_title = self.output_dir + audio_title
+            audio_title = self.output_dir + "audio/" + audio_title
             response    = urllib.request.urlopen(audio_src)
 
             with open(audio_title, "wb") as f:
@@ -200,7 +183,7 @@ class BibleIsScraper:
 
     def write_csv(self, filename=None):
         if filename is None:
-            filename = self.output_dir + 'bibleis_transcription.csv'
+            filename = self.output_dir + 'transcript.csv'
 
         df = self.to_dataframe()
         self._check_null_df(df)
@@ -229,3 +212,68 @@ class BibleIsScraper:
             sum_null_audio = df['audio_title'].isnull().sum()
             if sum_null_audio > 0:
                 raise ValueError(f"Found {sum_null_audio} null values in audio_title column.")
+
+    def _scrape_text_indasv(self, driver, url):
+        chapter_string = ''
+
+        # Get all verses
+        chapter_section = driver.find_element_by_css_selector(".chapter")
+        ps = chapter_section.find_elements_by_css_selector("p")
+
+        verses = []
+        if len(ps) != 0:
+            for p in ps:  # not including the chapter number
+                p_text = p.get_attribute("innerHTML")  # get all text
+
+                # Find disconnected verse, join it
+                hanging_verse_idx = p_text.find('<')
+                if hanging_verse_idx != 0:
+                    hanging_verse = p_text[:hanging_verse_idx]
+                    self.debug.append(f"{url} {hanging_verse}")
+                    if len(verses) == 0:  # handle occurence in first <p>
+                        verses.append(hanging_verse)
+                    else:
+                        last_verse = verses.pop()
+                        verses.append(last_verse + " " + hanging_verse)
+
+                other_verses = p.find_elements_by_css_selector(".v")
+                other_verses = [v.get_attribute("innerHTML") for v in other_verses]
+                verses.extend(other_verses)
+        # handle chapter not having any p element
+        else:
+            other_verses = chapter_section.find_elements_by_css_selector(".v")
+            other_verses = [v.get_attribute("innerHTML") for v in other_verses]
+            verses.extend(other_verses)
+
+        chapter_string = '\n\n'.join(verses)
+
+        return chapter_string
+
+    def _scrape_text_indwbt(self, driver, url):
+        chapter_string = ''
+
+        # Get all verses
+        cv_pattern = self.__get_chapter(url)
+        chapter_section = driver.find_element_by_css_selector(".chapter")
+        data = chapter_section.find_elements_by_css_selector(
+            f"span[data-id^={cv_pattern}], div[data-id^={cv_pattern}]"
+        )
+
+        verses = []
+        for d in data:
+            d_text = d.get_attribute("innerHTML")
+            verses.extend([d_text])
+
+        chapter_string = '\n\n'.join(verses)
+
+        # Clean <span> with class="note"
+        chapter_string = re.sub('<span class="note".+span>', '', chapter_string)
+
+        return chapter_string
+
+    @staticmethod
+    def __get_chapter(url):
+        """
+        "https://live.bible.is/bible/INDWBT/MAT/1?audio_type=audio" --> "MAT1"
+        """
+        return re.search("[^?]*", url[35:]).group().replace("/", '')
