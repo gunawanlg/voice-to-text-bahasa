@@ -5,7 +5,6 @@ import time
 import pandas as pd
 import urllib
 from selenium import webdriver
-# from selenium.common.exceptions import NoSuchElementException
 # from selenium.webdriver.common.by import By
 # from selenium.webdriver.support.ui import WebDriverWait
 # from selenium.webdriver.support import expected_conditions as EC
@@ -253,11 +252,10 @@ class BibleIsScraper:
         chapter_string = ''
 
         # Get all verses
-        cv_pattern = self.__get_chapter(url)
+        cv = self.__get_chapter(url)
         chapter_section = driver.find_element_by_css_selector(".chapter")
-        data = chapter_section.find_elements_by_css_selector(
-            f"span[data-id^={cv_pattern}], div[data-id^={cv_pattern}]"
-        )
+        css_pattern = f"p[data-id^={cv}], span[data-id^={cv}], div[data-id^={cv}]"
+        data = chapter_section.find_elements_by_css_selector(css_pattern)
 
         verses = []
         for d in data:
@@ -276,4 +274,10 @@ class BibleIsScraper:
         """
         "https://live.bible.is/bible/INDWBT/MAT/1?audio_type=audio" --> "MAT1"
         """
-        return re.search("[^?]*", url[35:]).group().replace("/", '')
+        cv_pattern = re.search("[^?]*", url[35:]).group().replace("/", '')
+
+        # In case of starting with digit, WTF??
+        if cv_pattern[0] in ['1', '2']:
+            cv_pattern = r'\3' + cv_pattern
+
+        return cv_pattern
