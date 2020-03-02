@@ -153,6 +153,7 @@ class BibleIsScraper:
         driver.get(url)
 
         audio_title = ''
+        chapter_string = ''
 
         if self.scrape_text:
             if self.version == 'INDASV':
