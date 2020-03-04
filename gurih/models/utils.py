@@ -246,6 +246,50 @@ class CharMap:
         return len(self.CHAR_TO_IDX_MAP) - 1
 
 
+class Seq2SeqCharMap:
+    """
+    Defines character map used in ASR model
+    """
+    CHAR_TO_IDX_MAP = {
+        "<": 1,
+        ">": 2,
+        " ": 3,
+        "a": 4,
+        "b": 5,
+        "c": 6,
+        "d": 7,
+        "e": 8,
+        "f": 9,
+        "g": 10,
+        "h": 11,
+        "i": 12,
+        "j": 13,
+        "k": 14,
+        "l": 15,
+        "m": 16,
+        "n": 17,
+        "o": 18,
+        "p": 19,
+        "q": 20,
+        "r": 21,
+        "s": 22,
+        "t": 23,
+        "u": 24,
+        "v": 25,
+        "w": 26,
+        "x": 27,
+        "y": 28,
+        "z": 29,
+        ".": 30,
+        ",": 31,
+    }
+
+    IDX_TO_CHAR_MAP = {v: k for k, v in CHAR_TO_IDX_MAP.items()}
+
+    def __len__(self):
+        return len(self.CHAR_TO_IDX_MAP)
+
+
 def __single_wer(r, h, html_filename=None, return_stats=False):
     d = np.zeros((len(r) + 1) * (len(h) + 1), dtype=np.uint16)
     d = d.reshape((len(r) + 1, len(h) + 1))

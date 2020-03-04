@@ -57,11 +57,14 @@ class ASREncoder(tf.keras.Model):
         state : shape=(m, n_lstm)
             final LSTM state
         """
-        output, state = self.bilstm(X, initial_state=hidden)
-        return output, state
+        output, *state = self.bilstm(X, initial_state=hidden)
+        return output, state  # shape=(batch_size, 4*n_lstm)
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[1], self.n_lstm)
 
     def initialize_hidden_state(self):
-        return tf.zeros((self.batch_size, self.n_lstm))
+        return [tf.zeros((None, self.n_lstm)) for i in range(4)]
 
 
 class BahdanauAttention(tf.keras.Model):
@@ -105,25 +108,47 @@ class ASRDecoder(tf.keras.Model):
 
         self.lstm = LSTM(self.n_lstm,
                          return_sequences=True,
-                         return_states=True,
+                         return_state=True,
                          recurrent_initializer='orthogonal')  # or 'glorot_uniform'
         self.fc = Dense(self.vocab_len)
         self.attention = BahdanauAttention(self.n_units)
 
-    def call(self, X, hidden, enc_output):
+    def call(self, x, hidden, enc_output):
         """
         Parameters
         ----------
 
         """
+        hidden = tf.concat(hidden, axis=1)
         context_vector, attention_weights = self.attention(hidden, enc_output)
 
-        X = tf.expand_dims(X, 1)
-        X = tf.concat([tf.expand_dims(context_vector, 1), X], axis=-1)
+        x = tf.expand_dims(x, axis=-1)
+        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
 
-        output, state = self.LSTM(X)
+        output, *state = self.lstm(x)
 
         output = tf.reshape(output, (-1, output.shape[2]))
-        X = self.fc(output)
+        x = self.fc(output)
 
-        return X, state, attention_weights
+        return x, tf.concat(state, axis=1), attention_weights
+
+    # def call(self, X, hidden, enc_output):
+    #     dec_hidden = tf.concat(hidden, axis=1)
+    #     outputs = []
+
+    #     for t in range(0, X.shape[1]):
+    #         x = tf.expand_dims(X[:, t], axis=-1)
+    #         x = tf.expand_dims(x, axis=-1)
+
+    #         context_vector, attention_weights = self.attention(dec_hidden, enc_output)
+    #         x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+
+    #         output, *state = self.lstm(x)
+
+    #         output = tf.reshape(output, (-1, output.shape[2]))
+    #         x = self.fc(output)
+    #         x = tf.expand_dims(x, axis=1)
+    #         outputs.append(x)
+    #         dec_hidden = tf.concat(state, axis=1)
+
+    #     return tf.concat(outputs, axis=1), dec_hidden, attention_weights
