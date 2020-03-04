@@ -278,7 +278,7 @@ class BibleIsScraper:
         cv_pattern = re.search("[^?]*", url[35:]).group().replace("/", '')
 
         # In case of starting with digit, WTF??
-        if cv_pattern[0] in ['1', '2']:
-            cv_pattern = r'\3' + cv_pattern
+        if cv_pattern[0] in ['1', '2', '3']:
+            cv_pattern = r'\3' + cv_pattern[0] + ' ' + cv_pattern[1:]
 
         return cv_pattern
