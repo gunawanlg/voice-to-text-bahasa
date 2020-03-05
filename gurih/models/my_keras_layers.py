@@ -3,10 +3,13 @@
 ################################
 
 import tensorflow as tf
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Layer, Lambda, Concatenate, Activation, Dot, RepeatVector
 from tensorflow.keras.layers import Conv1D, LSTM, Bidirectional, Dense
+from tensorflow.keras.models import Model
 
 
-class BaselineASR(tf.keras.Model):
+class BaselineASR(Model):
     def __init__(self, filters, kernel_size, strides, padding, n_lstm_units, n_dense_units):
         super(BaselineASR, self).__init__()
         self.conv1d        = Conv1D(filters,
@@ -31,9 +34,9 @@ class BaselineASR(tf.keras.Model):
         return x
 
 
-class ASREncoder(tf.keras.Model):
+class BasicASREncoder(Model):
     def __init__(self, vocab_len, n_lstm, batch_size):
-        super(ASREncoder, self).__init__()
+        super(BasicASREncoder, self).__init__()
         self.vocab_len = vocab_len
         self.n_lstm = n_lstm
         self.batch_size = batch_size
@@ -59,12 +62,6 @@ class ASREncoder(tf.keras.Model):
         """
         output, *state = self.bilstm(X, initial_state=hidden)
         return output, state  # shape=(batch_size, 4*n_lstm)
-
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], input_shape[1], self.n_lstm)
-
-    def initialize_hidden_state(self):
-        return [tf.zeros((None, self.n_lstm)) for i in range(4)]
 
 
 class BahdanauAttention(tf.keras.Model):
@@ -98,57 +95,85 @@ class BahdanauAttention(tf.keras.Model):
         return context_vector, attention_weights
 
 
-class ASRDecoder(tf.keras.Model):
-    def __init__(self, vocab_len, n_lstm, n_units, batch_size):
-        super(ASRDecoder, self).__init__()
-        self.vocab_len = vocab_len
-        self.n_lstm = n_lstm
-        self.n_units = n_units
-        self.batch_size = batch_size
+class PStacker(Layer):
+    def __init__(self):
+        super(PStacker, self).__init__()
+        self.even = Lambda(lambda x: x[:, 0::2, :])
+        self.odd = Lambda(lambda x: x[:, 1::2, :])
+        self.concat = Concatenate(axis=-1)
 
-        self.lstm = LSTM(self.n_lstm,
-                         return_sequences=True,
-                         return_state=True,
-                         recurrent_initializer='orthogonal')  # or 'glorot_uniform'
-        self.fc = Dense(self.vocab_len)
-        self.attention = BahdanauAttention(self.n_units)
+    def call(self, inputs):
+        even_sequence = self.even(inputs)
+        odd_sequence = self.odd(inputs)
+        outputs = self.concat([even_sequence, odd_sequence])
+        return outputs
 
-    def call(self, x, hidden, enc_output):
-        """
-        Parameters
-        ----------
 
-        """
-        hidden = tf.concat(hidden, axis=1)
-        context_vector, attention_weights = self.attention(hidden, enc_output)
+class MLP(Layer):
+    def __init__(self, n_dense):
+        super(MLP, self).__init__()
+        self.densor_1 = Dense(n_dense)
+        self.densor_2 = Dense(n_dense//2)
+        self.densor_3 = Dense(n_dense//4)
+        self.densor_4 = Dense(1, activation='relu')
 
-        x = tf.expand_dims(x, axis=-1)
-        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+    def call(self, X):
+        return self.densor_4(self.densor_3(self.densor_2(self.densor_1(X))))
 
-        output, *state = self.lstm(x)
 
-        output = tf.reshape(output, (-1, output.shape[2]))
-        x = self.fc(output)
+class LuongAttention(Model):
+    def __init__(self, n_dense):
+        super(LuongAttention, self).__init__()
+        self.concatenator = Concatenate(axis=-1)
+        self.densor = MLP(n_dense)
+        self.activator = Activation('softmax', name='attention_weights')
+        self.dotor = Dot(axes=1)
 
-        return x, tf.concat(state, axis=1), attention_weights
+    def call(self, inputs):
+        encoder_outputs, *decoder_prev_states = inputs
+        Tx = K.int_shape(encoder_outputs)[1]
 
-    # def call(self, X, hidden, enc_output):
-    #     dec_hidden = tf.concat(hidden, axis=1)
-    #     outputs = []
+        decoder_prev_states = self.concatenator(decoder_prev_states)
+        decoder_prev_states = RepeatVector(Tx)(decoder_prev_states)
+        concat = self.concatenator([encoder_outputs, decoder_prev_states])
 
-    #     for t in range(0, X.shape[1]):
-    #         x = tf.expand_dims(X[:, t], axis=-1)
-    #         x = tf.expand_dims(x, axis=-1)
+        e = self.densor(concat)
+        alphas = self.activator(e)
+        context_vector = self.dotor([alphas, encoder_outputs])
 
-    #         context_vector, attention_weights = self.attention(dec_hidden, enc_output)
-    #         x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+        return context_vector, alphas
 
-    #         output, *state = self.lstm(x)
 
-    #         output = tf.reshape(output, (-1, output.shape[2]))
-    #         x = self.fc(output)
-    #         x = tf.expand_dims(x, axis=1)
-    #         outputs.append(x)
-    #         dec_hidden = tf.concat(state, axis=1)
+class DecoderLSTM(Model):
+    def __init__(self, n_lstm, vocab_len):
+        super(DecoderLSTM, self).__init__()
+        self.lstm_1 = LSTM(n_lstm, return_sequences=True, return_state=True)
+        self.lstm_2 = LSTM(n_lstm, return_sequences=True, return_state=True)
+        self.dense = Dense(vocab_len, activation='softmax')
 
-    #     return tf.concat(outputs, axis=1), dec_hidden, attention_weights
+    def call(self, inputs):
+        context_vector, *initial_states = inputs
+
+        lstm_1_output, *lstm_1_states = self.lstm_1(context_vector,
+                                                    initial_state=initial_states[0:2])
+        lstm_2_output, *lstm_2_states = self.lstm_2(lstm_1_output,
+                                                    initial_state=initial_states[2:4])
+        outputs = self.dense(lstm_2_output)
+
+        return outputs, [*lstm_1_states, *lstm_2_states]
+
+
+class EncoderLSTM(Model):
+    def __init__(self, n_lstm):
+        super(EncoderLSTM, self).__init__()
+        self.pstack = PStacker()
+        self.encoder_1 = Bidirectional(LSTM(n_lstm//4, return_sequences=True))
+        self.encoder_2 = Bidirectional(LSTM(n_lstm//2, return_sequences=True))
+        self.encoder_3 = Bidirectional(LSTM(n_lstm, return_sequences=True, return_state=True))
+
+    def call(self, inputs):
+        stack_1 = self.pstack(self.encoder_1(inputs))
+        stack_2 = self.pstack(self.encoder_2(stack_1))
+        encoder_outputs, *encoder_states = self.encoder_3(stack_2)
+
+        return encoder_outputs, encoder_states
