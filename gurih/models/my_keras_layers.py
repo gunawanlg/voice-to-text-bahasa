@@ -109,10 +109,10 @@ class PStacker(Layer):
         return outputs
 
 
-class MLP(Layer):
+class MLPAttention(Layer):
     def __init__(self, n_dense):
-        super(MLP, self).__init__()
-        self.densor_1 = Dense(n_dense)
+        super(MLPAttention, self).__init__()
+        self.densor_1 = Dense(n_dense, )
         self.densor_2 = Dense(n_dense//2)
         self.densor_3 = Dense(n_dense//4)
         self.densor_4 = Dense(1, activation='relu')
@@ -121,11 +121,21 @@ class MLP(Layer):
         return self.densor_4(self.densor_3(self.densor_2(self.densor_1(X))))
 
 
+class MLPOutput(Layer):
+    def __init__(self, n_dense):
+        super(MLPOutput, self).__init__()
+        self.densor_1 = Dense(n_dense, activation='relu')
+        self.densor_2 = Dense(n_dense//2, activation='relu')
+
+    def call(self, X):
+        return self.densor_2(self.densor_1(X))
+
+
 class LuongAttention(Model):
     def __init__(self, n_dense):
         super(LuongAttention, self).__init__()
         self.concatenator = Concatenate(axis=-1)
-        self.densor = MLP(n_dense)
+        self.densor = MLPAttention(n_dense)
         self.activator = Activation('softmax', name='attention_weights')
         self.dotor = Dot(axes=1)
 
@@ -145,20 +155,20 @@ class LuongAttention(Model):
 
 
 class DecoderLSTM(Model):
-    def __init__(self, n_lstm, vocab_len):
+    def __init__(self, n_lstm, n_dense, vocab_len):
         super(DecoderLSTM, self).__init__()
         self.lstm_1 = LSTM(n_lstm, return_sequences=True, return_state=True)
         self.lstm_2 = LSTM(n_lstm, return_sequences=True, return_state=True)
+        self.mlp = MLPOutput(n_dense)
         self.dense = Dense(vocab_len, activation='softmax')
 
     def call(self, inputs):
         context_vector, *initial_states = inputs
 
-        lstm_1_output, *lstm_1_states = self.lstm_1(context_vector,
-                                                    initial_state=initial_states[0:2])
-        lstm_2_output, *lstm_2_states = self.lstm_2(lstm_1_output,
-                                                    initial_state=initial_states[2:4])
-        outputs = self.dense(lstm_2_output)
+        lstm_1_output, *lstm_1_states = self.lstm_1(context_vector, initial_state=initial_states[0:2])
+        lstm_2_output, *lstm_2_states = self.lstm_2(lstm_1_output, initial_state=initial_states[2:4])
+        outputs = self.mlp(lstm_2_output)
+        outputs = self.dense(outputs)
 
         return outputs, [*lstm_1_states, *lstm_2_states]
 
