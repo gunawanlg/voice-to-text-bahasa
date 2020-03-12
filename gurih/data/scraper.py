@@ -217,6 +217,30 @@ class BibleIsScraper:
         chapter_string = ''
 
         # Get all verses
+        cv = self.__get_chapter(url)
+        chapter_section = driver.find_element_by_css_selector(".chapter")
+        css_pattern = f"p[data-id^={cv}], span[data-id^={cv}], div[data-id^={cv}]"
+        data = chapter_section.find_elements_by_css_selector(css_pattern)
+
+        verses = []
+        for d in data:
+            d_text = d.get_attribute("innerHTML")
+            idx = d_text.find('<')  # get all innerHTML until the first '<'
+            if idx != 0:
+                d_text = d_text[:idx]
+            verses.extend([d_text])
+
+        chapter_string = '\n\n'.join(verses)
+
+        # Clean <span> with class="note"
+        chapter_string = re.sub('<span class="note".+span>', '', chapter_string)
+
+        return chapter_string
+
+    def _scrape_text_indasv_old(self, driver, url):
+        chapter_string = ''
+
+        # Get all verses
         chapter_section = driver.find_element_by_css_selector(".chapter")
         ps = chapter_section.find_elements_by_css_selector("p")
 
@@ -261,6 +285,9 @@ class BibleIsScraper:
         verses = []
         for d in data:
             d_text = d.get_attribute("innerHTML")
+            idx = d_text.find('<')  # get all innerHTML until the first '<'
+            if idx != 0:
+                d_text = d_text[:idx]
             verses.extend([d_text])
 
         chapter_string = '\n\n'.join(verses)
