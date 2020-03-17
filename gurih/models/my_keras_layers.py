@@ -5,7 +5,7 @@
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Layer, Lambda, Concatenate, Activation, Dot, RepeatVector
-from tensorflow.keras.layers import Conv1D, LSTM, Bidirectional, Dense
+from tensorflow.keras.layers import Conv1D, LSTM, Bidirectional, Dense, MaxPool1D, SimpleRNN
 from tensorflow.keras.models import Model
 
 
@@ -154,6 +154,22 @@ class LuongAttention(Model):
         return context_vector, alphas
 
 
+class EncoderLSTM(Model):
+    def __init__(self, n_lstm):
+        super(EncoderLSTM, self).__init__()
+        self.pstack = PStacker()
+        self.encoder_1 = Bidirectional(LSTM(n_lstm//4, return_sequences=True))
+        self.encoder_2 = Bidirectional(LSTM(n_lstm//2, return_sequences=True))
+        self.encoder_3 = Bidirectional(LSTM(n_lstm, return_sequences=True, return_state=True))
+
+    def call(self, inputs):
+        stack_1 = self.pstack(self.encoder_1(inputs))
+        stack_2 = self.pstack(self.encoder_2(stack_1))
+        encoder_outputs, *encoder_states = self.encoder_3(stack_2)
+
+        return encoder_outputs, encoder_states
+
+
 class DecoderLSTM(Model):
     def __init__(self, n_lstm, n_dense, vocab_len):
         super(DecoderLSTM, self).__init__()
@@ -173,17 +189,48 @@ class DecoderLSTM(Model):
         return outputs, [*lstm_1_states, *lstm_2_states]
 
 
-class EncoderLSTM(Model):
-    def __init__(self, n_lstm):
-        super(EncoderLSTM, self).__init__()
-        self.pstack = PStacker()
-        self.encoder_1 = Bidirectional(LSTM(n_lstm//4, return_sequences=True))
-        self.encoder_2 = Bidirectional(LSTM(n_lstm//2, return_sequences=True))
-        self.encoder_3 = Bidirectional(LSTM(n_lstm, return_sequences=True, return_state=True))
+# Below are implementation of SpecAugment paper
+class EncoderLSTMSpecAugment(Model):
+    def __init__(self, n_lstm, n_filters=256, kernel_size=11):
+        super(EncoderLSTMSpecAugment, self).__init__()
+        self.n_lstm = n_lstm
+        self.n_filters = n_filters
+        self.kernel_size = kernel_size
+        self.cnn_1 = Conv1D(n_filters, kernel_size, strides=1, padding='same')
+        self.max_pool_1 = MaxPool1D()
+        self.cnn_2 = Conv1D(n_filters, kernel_size, strides=1, padding='same')
+        self.max_pool_2 = MaxPool1D()
+        self.lstm_1 = Bidirectional(LSTM(n_lstm, return_sequences=True))
+        self.lstm_2 = Bidirectional(LSTM(n_lstm, return_sequences=True))
+        self.lstm_3 = Bidirectional(LSTM(n_lstm, return_sequences=True))
+        self.lstm_4 = Bidirectional(LSTM(n_lstm, return_sequences=True, return_state=True))
 
     def call(self, inputs):
-        stack_1 = self.pstack(self.encoder_1(inputs))
-        stack_2 = self.pstack(self.encoder_2(stack_1))
-        encoder_outputs, *encoder_states = self.encoder_3(stack_2)
+        encoder_outputs, *encoder_states = self.lstm_4(
+            self.lstm_3(
+                self.lstm_2(
+                    self.lstm_1(
+                        self.max_pool_2(
+                            self.cnn_2(
+                                self.max_pool_1(
+                                    self.cnn_1(inputs))))))))
 
         return encoder_outputs, encoder_states
+
+
+class DecoderLSTMSpecAugment(Model):
+    def __init__(self, n_rnn, vocab_len):
+        super(DecoderLSTMSpecAugment, self).__init__()
+        self.rnn_1 = SimpleRNN(n_rnn, return_sequences=True, return_state=True)
+        self.rnn_2 = SimpleRNN(n_rnn, return_sequences=True, return_state=True)
+        self.dense = Dense(vocab_len, activation='softmax')
+
+    def call(self, inputs):
+        context_vector, *initial_states = inputs
+
+        # Initialize only with cell state from LSTM
+        rnn_1_output, rnn_1_states = self.rnn_1(context_vector, initial_state=initial_states[0])
+        rnn_2_output, rnn_2_states = self.rnn_2(rnn_1_output, initial_state=initial_states[1])
+        outputs = self.dense(rnn_2_output)
+
+        return outputs, [rnn_1_states, rnn_2_states]
