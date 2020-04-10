@@ -398,7 +398,12 @@ def sparsity(corpus, V=None):
 
         Sd = 1 - (Ni / (n * V))
 
-        return Sd
+        return {
+            "Sd": Sd,
+            "n": n,
+            "Ni": Ni,
+            "V": V,
+        }
     else:
         n = len(corpus)
         Ni = 0
