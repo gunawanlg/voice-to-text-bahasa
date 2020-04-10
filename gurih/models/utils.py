@@ -246,6 +246,51 @@ class CharMap:
         return len(self.CHAR_TO_IDX_MAP) - 1
 
 
+class Seq2SeqCharMap:
+    """
+    Defines character map used in ASR model
+    """
+    CHAR_TO_IDX_MAP = {
+        " ": 0,
+        "a": 1,
+        "b": 2,
+        "c": 3,
+        "d": 4,
+        "e": 5,
+        "f": 6,
+        "g": 7,
+        "h": 8,
+        "i": 9,
+        "j": 10,
+        "k": 11,
+        "l": 12,
+        "m": 13,
+        "n": 14,
+        "o": 15,
+        "p": 16,
+        "q": 17,
+        "r": 18,
+        "s": 19,
+        "t": 20,
+        "u": 21,
+        "v": 22,
+        "w": 23,
+        "x": 24,
+        "y": 25,
+        "z": 26,
+        ".": 27,
+        ",": 28,
+        "<": 29,
+        ">": 30,
+        "%": 31,
+    }
+
+    IDX_TO_CHAR_MAP = {v: k for k, v in CHAR_TO_IDX_MAP.items()}
+
+    def __len__(self):
+        return len(self.CHAR_TO_IDX_MAP) - 1
+
+
 def __single_wer(r, h, html_filename=None, return_stats=False):
     d = np.zeros((len(r) + 1) * (len(h) + 1), dtype=np.uint16)
     d = d.reshape((len(r) + 1, len(h) + 1))
@@ -324,3 +369,55 @@ def __single_wer(r, h, html_filename=None, return_stats=False):
         return result, stats
     else:
         return result
+
+
+def sparsity(corpus, V=None):
+    """
+    Calculate, Ni, n, V for a corpus. Will use Unique words in corpus documents
+    if V is not provided.
+
+    Parameters
+    ----------
+    corpus : list of str
+        collections of documents
+    V : int, optional, [default=None]
+        if provided, will calculate sparsity using given param, you may want to
+        use it with your language model vocab size for instance.
+
+    Returns
+    -------
+    Sd : float,
+        sparsity of given corpus. formula = 1 - (Ni / (n * V))
+    """
+    if V:
+        n = len(corpus)
+        Ni = 0
+        for document in corpus:
+            s = set(document.split())
+            Ni = Ni + len(s)
+
+        Sd = 1 - (Ni / (n * V))
+
+        return {
+            "Sd": Sd,
+            "n": n,
+            "Ni": Ni,
+            "V": V,
+        }
+    else:
+        n = len(corpus)
+        Ni = 0
+        V = set()
+        for document in corpus:
+            s = set(document.split())
+            Ni = Ni + len(s)
+            V |= s
+
+        Sd = 1 - (Ni / (n * len(V)))
+
+        return {
+            "Sd": Sd,
+            "n": n,
+            "Ni": Ni,
+            "V": V,
+        }

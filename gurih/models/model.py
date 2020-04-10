@@ -12,7 +12,7 @@ import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras import Input
 from tensorflow.keras.models import Model, model_from_json
-from tensorflow.keras.layers import Lambda, Dense, LSTM
+from tensorflow.keras.layers import Lambda, Dense, LSTM, Dropout
 from tensorflow.keras.layers import Masking, Conv1D, Bidirectional, TimeDistributed
 # from tensorflow.keras.metrics import Precision, Recall
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
@@ -68,6 +68,10 @@ class _BaseModel:
         self.callbacks = None
         self.name = None
         self._show_summary()
+
+    def _create(self):
+        """Create model architecture"""
+        raise NotImplementedError
 
     def compile(self):
         """Model.compile"""
@@ -478,3 +482,90 @@ class BaselineASRModel(_BaseModel):
         ctc_matrix = pred_func(X_test)[0]
 
         return ctc_matrix
+
+
+class BaselineASRModelV2(BaselineASRModel):
+    def __init__(self,
+                 input_shape,
+                 vocab_len,
+                 n_dense=512,
+                 n_lstm_units=256,
+                 filters=256,
+                 **kwargs):
+        super().__init__(input_shape,
+                         vocab_len,
+                         n_lstm_units=n_lstm_units,
+                         filters=filters,
+                         **kwargs)
+        self._n_dense = n_dense
+
+    def _create(self):
+        """Create the baseline ASR with CTC Model"""
+        def _ctc_lambda_func(args):
+            """Lambda function to calculate CTC loss in keras"""
+            y_pred, labels, input_length, label_length = args
+            # y_pred = y_pred[:, 2:, :]
+            return K.ctc_batch_cost(labels, y_pred, input_length, label_length)
+
+        # Calculate output shape as len of vocab +1 for CTC blank token
+        output_shape = self.vocab_len + 1
+
+        input_in = Input(shape=self.input_shape, name="the_input")
+        mask     = Masking(mask_value=0, name="masking")(input_in)
+        conv1D   = Conv1D(self._filters,
+                          self._kernel_size,
+                          strides=self._strides,
+                          padding=self._padding,
+                          activation='relu',
+                          name="conv1")(mask)
+        dense1   = TimeDistributed(Dense(self._n_dense, activation='relu'), name="dense1")(conv1D)
+        dropout1 = Dropout(0.1)(dense1, training=self._training)
+        dense2   = TimeDistributed(Dense(self._n_dense, activation='relu'), name="dense2")(dropout1)
+        dropout2 = Dropout(0.1)(dense2, training=self._training)
+        dense3   = TimeDistributed(Dense(self._n_dense, activation='relu'), name="dense3")(dropout2)
+        dropout3 = Dropout(0.1)(dense3, training=self._training)
+        biLSTM   = Bidirectional(LSTM(self._n_lstm_units,
+                                      return_sequences=True,
+                                      activation='tanh'),
+                                 name="bidirectional")(dropout3)
+        y_pred   = TimeDistributed(Dense(output_shape, activation='softmax'),
+                                   name="the_output")(biLSTM)
+
+        labels       = Input(shape=[None], dtype='float32', name="the_labels")
+        input_length = Input(shape=[1], dtype='int32', name="input_length")
+        label_length = Input(shape=[1], dtype='int32', name="label_length")
+        loss_out     = Lambda(_ctc_lambda_func,
+                              output_shape=(1,),
+                              name='ctc')([y_pred, labels, input_length, label_length])
+
+        self.model = Model(inputs=[input_in, labels, input_length, label_length],
+                           outputs=[loss_out])
+        self.name = '_'.join(["BaselineASR",
+                              'f' + str(self._filters),
+                              'k' + str(self._kernel_size),
+                              's' + str(self._strides),
+                              'p' + self._padding,
+                              'nlstm' + str(self._n_lstm_units),
+                              'ndense' + str(self.vocab_len)])
+
+        # See the model summary before calculating custom CTC loss
+        # for clarity of the architecture of the model
+        tmp_model = Model(inputs=input_in, outputs=y_pred)
+        tmp_model._name = '_'.join(["BaselineASR",
+                                    'f' + str(self._filters),
+                                    'k' + str(self._kernel_size),
+                                    's' + str(self._strides),
+                                    'p' + self._padding,
+                                    'nlstm' + str(self._n_lstm_units),
+                                    'ndense' + str(self.vocab_len)])
+        tmp_model.summary()
+        if self._training is True:
+            with open(self._doc_path + "summary.txt", 'w') as f:
+                with redirect_stdout(f):
+                    tmp_model.summary()
+
+
+class Seq2SeqModel(_BaseModel):
+    def __init__(self, input_shape, vocab_len, latent_dim=256, **kwargs):
+        super().__init__(input_shape, vocab_len, **kwargs)
+        self.latent_dim = latent_dim
