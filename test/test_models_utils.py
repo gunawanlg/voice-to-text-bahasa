@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from gurih.models.utils import CharMap, cer, wer, wer_and_cer
+from gurih.models.utils import CharMap, cer, wer, wer_and_cer, sparsity
 
 
 class ModelsUtilsTest(unittest.TestCase):
@@ -61,6 +61,17 @@ class ModelsUtilsTest(unittest.TestCase):
     def test_error(self):
         with self.assertRaises(TypeError):
             _ = wer(self._y_true_list, self._y_pred_str)
+
+    def test_sparsity(self):
+        corpus = ["adalah dia yang menyerang hari itu.",
+                  "oh ya? aku tak tahu",
+                  "apa benar?"]
+
+        Sd = sparsity(corpus)['Sd']
+        Sd_v13 = sparsity(corpus, V=13)['Sd']
+
+        self.assertAlmostEqual(Sd, 0.6666667)
+        self.assertAlmostEqual(Sd_v13, 0.6666667)
 
 
 if __name__ == "__main__":
