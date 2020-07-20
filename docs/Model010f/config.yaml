@@ -1,0 +1,82 @@
+- !!python/object:gurih.data.normalizer.AudioNormalizer
+  encode: false
+  is_training: false
+  mono: false
+  output_dir: ''
+  sample_rate: 16000
+  write_audio_output: false
+- !!python/object:gurih.data.splitter.Splitter
+  low_memory: false
+  max_frame_length: 400081
+  padding: same
+  strides: 400081
+- !!python/object:gurih.features.extractor.MFCCFeatureExtractor
+  NFFT: 512
+  append_delta: true
+  append_energy: true
+  cep_lifter: 22
+  cep_num: 13
+  dct_norm: ortho
+  dct_type: 2
+  filter_num: 26
+  frame_size: 0.025
+  frame_stride: 0.01
+  high_freq: 8000.0
+  ignore_output: false
+  is_training: false
+  low_freq: 0
+  low_memory: false
+  output_dir: .
+  pre_emphasis_coeff: 0.97
+  sample_rate: 16000
+  write_output: false
+- !!python/object:gurih.models.model.BaselineASRModel
+  _dir_path: ../../models/Model010f/BaselineASR_f200_k11_s2_pvalid_nlstm200_ndense29.h5
+  _doc_path: ../../docs/Model010f/
+  _filters: 200
+  _kernel_size: 11
+  _n_lstm_units: 200
+  _padding: valid
+  _strides: 2
+  _training: false
+  callbacks: null
+  fig: null
+  history: null
+  input_shape: !!python/tuple
+  - 2500
+  - 39
+  model: null
+  name: null
+  vocab_len: 29
+- !!python/object:gurih.models.decoder.CTCDecoder
+  idx_to_char_map:
+    0: ' '
+    1: a
+    2: b
+    3: c
+    4: d
+    5: e
+    6: f
+    7: g
+    8: h
+    9: i
+    10: j
+    11: k
+    12: l
+    13: m
+    14: n
+    15: o
+    16: p
+    17: q
+    18: r
+    19: s
+    20: t
+    21: u
+    22: v
+    23: w
+    24: x
+    25: y
+    26: z
+    27: .
+    28: ','
+    29: '%'

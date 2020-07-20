@@ -2,6 +2,9 @@ import glob
 from random import shuffle as shuf
 
 import numpy as np
+from kapre.time_frequency import Melspectrogram
+import tensorflow as tf
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import Sequence
 
 
@@ -52,7 +55,7 @@ class DataGenerator(Sequence):
     'label_length': array([28])}
     """
     def __init__(self, input_dir, max_seq_length, max_label_length, ctc_input_length,
-                 char_to_idx_map, batch_size=32, num_batch=0, shuffle=True):
+                 char_to_idx_map, batch_size=32, num_batch=0, shuffle=True, sr=16000, n_mfcc=39):
         self.input_dir = input_dir
         self.max_seq_length = max_seq_length
         self.max_label_length = max_label_length
@@ -61,8 +64,10 @@ class DataGenerator(Sequence):
         self.batch_size = batch_size
         self.num_batch = num_batch
         self.shuffle = shuffle
+        self.sr = sr
+        self.n_mfcc = n_mfcc
 
-        features_filename = sorted(glob.glob(input_dir + "*.npz"))
+        features_filename = sorted(glob.glob(input_dir + "*.wav"))
         transcription_filename = sorted(glob.glob(input_dir + "*.txt"))
 
         n_features = len(features_filename)
@@ -70,6 +75,14 @@ class DataGenerator(Sequence):
         msg = f"Incosistent input length {n_features} != {n_transcription}"
         assert len(features_filename) == len(transcription_filename), msg
         self._m = len(features_filename)
+
+        # Kapre
+        self.spectrogrator = Melspectrogram(n_dft=512, n_hop=256, input_shape=(None, None),
+                                            padding='same', sr=self.sr, n_mels=self.n_mfcc,
+                                            fmin=0.0, fmax=self.sr/2, power_melgram=2.0,
+                                            return_decibel_melgram=True, trainable_fb=False,
+                                            trainable_kernel=False,
+                                            name='melspectrogram')
 
         # Initialize indexes
         self.indexes = np.arange(self._m)
@@ -116,10 +129,25 @@ class DataGenerator(Sequence):
         label_length = [self.max_label_length] * len(indexes_in_batch)
 
         for idx in indexes_in_batch:
-            x_tmp = np.load(f"{self.input_dir}{idx}.npz")
-            x_tmp = x_tmp['arr_0']
-            x_tmp_padded = self._pad_sequence(x_tmp, self.max_seq_length)
-            X.append(x_tmp_padded)
+            # On the fly spectrogram
+            input_data = tf.io.read_file(f"{self.input_dir}{idx}.wav")
+            audio, sr = tf.audio.decode_wav(input_data)
+            audio = tf.expand_dims(tf.transpose(audio, [1, 0]), axis=0)
+
+            log_mel_spectrum = tf.squeeze(self.spectrogrator(audio), axis=-1)
+            log_mel_spectrum = tf.transpose(log_mel_spectrum, [0, 2, 1])
+            padded_spectrum = pad_sequences(log_mel_spectrum,
+                                            maxlen=self.max_seq_length,
+                                            dtype='float32',
+                                            padding='post',
+                                            truncating='post',
+                                            value=0.0)
+            X.append(padded_spectrum[0])
+
+            # x_tmp = np.load(f"{self.input_dir}{idx}.npz")
+            # x_tmp = x_tmp['arr_0']
+            # x_tmp_padded = self._pad_sequence(x_tmp, self.max_seq_length)
+            # X.append(x_tmp_padded)
 
             with open(f"{self.input_dir}{idx}.txt", 'r') as f:
                 y_str = f.readlines()[0]
@@ -248,10 +276,10 @@ def validate_dataset_dir(dataset_dir):
     assert len(txts) != 0, f"No txt found in {dataset_dir}."
 
     # assert same length
-    assert len(npzs) == len(txts), f"Incosistent input length {len(npzs)} != {len(txts)}"
+    assert len(npzs) == len(txts), f"Inconsistent input length {len(npzs)} != {len(txts)}"
 
     # assert same name conventions
     for npz, txt in zip(npzs, txts):
-        assert npz[:-4] == txt[:-4], f"Found incosistent naming {npz[:-4]} and {txt[:-4]}"
+        assert npz[:-4] == txt[:-4], f"Found inconsistent naming {npz[:-4]} and {txt[:-4]}"
 
     print(f"{dataset_dir} checks passed.")

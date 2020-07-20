@@ -126,4 +126,4 @@ class AudioNormalizer(TransformerMixin):
         if self.is_training:
             return signal_dict
         else:
-            return np.array(signals)
+            return signals
